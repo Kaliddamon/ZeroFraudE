@@ -1,0 +1,17 @@
+# ============================================================
+# Risk Fusion weights
+# configs/risk_fusion.yaml
+# Modificar sin reentrenar el modelo.
+# ============================================================
+
+# Pesos base (usuario con perfil establecido)
+weights:
+  fraud_probability: 0.60
+  anomaly_score: 0.25
+  behavioral_deviation: 0.15
+
+# Pesos para usuarios en cold start (< cold_start_min_transactions)
+cold_start_weights:
+  fraud_probability: 0.70
+  anomaly_score: 0.30
+  behavioral_deviation: 0.00

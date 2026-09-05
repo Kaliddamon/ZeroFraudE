@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "critical": 0.85,
+  "high": 0.65,
+  "medium": 0.40,
+  "last_tuned": "2026-08-22",
+  "validation_pr_auc": null,
+  "notes": "Thresholds iniciales. Ajustar tras threshold tuning en Validation set."
+}

@@ -1,0 +1,73 @@
+# ============================================================
+# Pipeline configuration
+# configs/pipeline.yaml
+# ============================================================
+
+# Reproducibilidad
+seed: 42
+model_version: "1.0.0"
+
+# División temporal del dataset
+# Ajustar según el dataset real disponible
+data:
+  train_end_date: "2023-03-31"
+  val_end_date: "2023-04-30"
+  # test: todo lo posterior a val_end_date
+
+# Feature engineering
+features:
+  behavioral_window_days: 30       # Ventana histórica para perfiles
+  cold_start_min_transactions: 5   # Umbral de cold start
+  velocity_windows_minutes:
+    - 5
+    - 60
+    - 1440                         # 24h
+
+  # Features que el modelo usará (en orden)
+  # Generadas por feature_pipeline.py
+  model_features:
+    - amount_log
+    - hour_sin
+    - hour_cos
+    - day_of_week
+    - is_weekend
+    - is_night
+    - user_avg_amount_30d
+    - user_std_amount_30d
+    - amount_z_score
+    - amount_ratio_to_avg
+    - is_new_device
+    - is_new_country
+    - is_new_merchant
+    - user_tx_count_30d
+    - days_since_last_tx
+    - tx_count_5min
+    - tx_count_1h
+    - tx_count_24h
+    - amount_sum_1h
+    - unique_merchants_24h
+    - unique_countries_24h
+    - is_duplicate_candidate
+    - country_encoded
+    - merchant_target_enc
+    - device_target_enc
+
+# Modelo supervisado (LightGBM)
+model:
+  n_estimators: 500
+  learning_rate: 0.05
+  num_leaves: 31
+  min_child_samples: 20
+  colsample_bytree: 0.8
+  early_stopping_rounds: 50
+
+# Modelo de anomalías (Isolation Forest)
+anomaly:
+  contamination: 0.01
+  n_estimators: 100
+  max_samples: "auto"
+
+# Evaluación basada en costos
+evaluation:
+  cost_fp: 5.0    # Costo de bloquear una transacción legítima ($)
+  cost_fn: 150.0  # Costo promedio de un fraude no detectado ($)

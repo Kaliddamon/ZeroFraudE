@@ -1,0 +1,45 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# ── Virtual environments ────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── IDE ─────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Datos (no commitear datasets crudos) ────────────────
+data/raw/*.csv
+data/raw/*.parquet
+data/processed/*.csv
+data/processed/*.parquet
+
+# ── Artefactos (modelos entrenados, demasiado grandes) ──
+artifacts/**/*.joblib
+artifacts/**/*.pkl
+artifacts/**/*.onnx
+!artifacts/**/*.json
+
+# ── Experimentos (resultados locales) ───────────────────
+experiments/
+
+# ── Notebooks checkpoints ──────────────────────────────
+.ipynb_checkpoints/
+
+# ── OS ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker ──────────────────────────────────────────────
+*.log
