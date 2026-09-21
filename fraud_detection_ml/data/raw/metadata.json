@@ -1,0 +1,19 @@
+{
+    "rows": 51058,
+    "columns": [
+        "transaction_id",
+        "user_id",
+        "amount",
+        "timestamp",
+        "country",
+        "device_id",
+        "merchant_id",
+        "is_fraud"
+    ],
+    "fraud_rate": 0.05499627874182302,
+    "date_range": [
+        "2023-01-01 01:37:29+00:00",
+        "2023-05-30 22:55:36+00:00"
+    ],
+    "md5": "18d8dbac66c90eee9a31ade4a500c85d"
+}
