@@ -7,13 +7,8 @@ import { Bell, Search } from 'lucide-react';
 export function MainLayout() {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  
-  // Basic Auth guard for frontend structure
-  const token = localStorage.getItem('zfe_token');
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
 
+  // Scroll effect — must be declared BEFORE any conditional return (Rules of Hooks)
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -21,6 +16,12 @@ export function MainLayout() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Basic Auth guard for frontend structure
+  const token = localStorage.getItem('zfe_token');
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
   // Title mapper based on route
   const getPageTitle = () => {
@@ -37,46 +38,48 @@ export function MainLayout() {
       
       <main className="flex-1 flex flex-col min-w-0">
         
-        {/* Aurora Header with Scroll Effect */}
+        {/* Sleek Swiss Navigation Bar */}
         <header 
           className={cn(
-            'sticky top-0 z-40 w-full transition-all duration-300 border-b border-transparent',
+            'sticky top-0 z-40 w-full transition-all duration-200 border-b',
             scrolled 
-              ? 'bg-[rgba(11,20,38,0.85)] backdrop-blur-md border-[var(--border-subtle)] shadow-sm py-3'
-              : 'aurora-bg py-5'
+              ? 'bg-[#0E1012]/95 backdrop-blur-md border-[#23272B] shadow-sm py-2.5'
+              : 'bg-[#0C0D0E] border-[#1F2328] py-3'
           )}
         >
-          <div className="px-8 flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
-                {getPageTitle()}
-              </h1>
-              {!scrolled && (
-                <p className="text-sm text-[var(--text-muted)] mt-0.5">
-                  Análisis de riesgo en tiempo real
-                </p>
-              )}
+          <div className="px-6 md:px-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Context breadcrumb & status */}
+              <div className="flex items-center gap-2 font-mono text-xs">
+                <span className="text-[#808893] uppercase tracking-wider font-semibold">ZeroFraudE</span>
+                <span className="text-[#3A4048]">/</span>
+                <span className="text-[#D1D5DB] font-medium">{getPageTitle()}</span>
+              </div>
+              <div className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>ONLINE · LIGHTGBM V1.1.0</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Global Search Mock */}
+            <div className="flex items-center gap-3">
+              {/* Global Search */}
               <div className="relative hidden md:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#808893]" />
                 <input 
                   type="text" 
-                  placeholder="Buscar TX, Usuario..." 
-                  className="bg-[rgba(17,32,57,0.5)] border border-[var(--border-default)] rounded-full py-1.5 pl-9 pr-4 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] transition-all w-64 placeholder:text-transparent placeholder-shown:placeholder:text-[var(--text-muted)]"
+                  placeholder="Buscar por ID, Usuario..." 
+                  className="bg-[#141618] border border-[#23272B] rounded-lg py-1.5 pl-8 pr-3 text-xs font-mono text-[#F3F4F6] focus:outline-none focus:border-[#383E46] transition-all w-56 placeholder:text-[#606770]"
                 />
               </div>
               
               {/* Notifications */}
-              <button className="relative p-2 rounded-full hover:bg-[rgba(255,255,255,0.05)] transition-colors text-[var(--text-secondary)]">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--risk-high)] animate-pulse" />
+              <button className="relative p-1.5 rounded-lg border border-[#23272B] bg-[#141618] hover:bg-[#1B1E21] transition-colors text-[#9CA3AF]">
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               </button>
               
-              {/* User Avatar */}
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[var(--bg-elevated)] to-[var(--border-strong)] border border-[var(--border-default)] flex items-center justify-center text-sm font-semibold text-[var(--text-primary)] shadow-sm ml-2 cursor-pointer">
+              {/* Analyst Avatar */}
+              <div className="w-7 h-7 rounded-lg bg-[#1B1E21] border border-[#2A3038] flex items-center justify-center text-xs font-mono font-semibold text-[#E5E7EB] shadow-sm cursor-pointer">
                 AN
               </div>
             </div>

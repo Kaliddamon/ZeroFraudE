@@ -64,16 +64,16 @@ export function LoginPage() {
                 type="email"
                 label="Correo Institucional"
                 leftIcon={<Mail className="w-4 h-4" />}
+                placeholder="admin@frauddetection.com"
                 required
-                defaultValue="analyst@frauddetect.io"
               />
               <Input
                 name="password"
                 type="password"
                 label="Contraseña"
                 leftIcon={<Lock className="w-4 h-4" />}
+                placeholder="••••••••"
                 required
-                defaultValue="password123"
               />
             </div>
 

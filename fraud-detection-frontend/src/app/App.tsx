@@ -6,9 +6,9 @@ import { AuthLayout } from '@/layouts/AuthLayout';
 import { MainLayout } from '@/layouts/MainLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import TransactionExplorer from '@/pages/TransactionExplorer';
 
 // Placeholders for other pages
-const TransactionsPage = () => <div className="text-[var(--text-muted)]">Explorador de Transacciones (En construcción)</div>;
 const AlertsPage = () => <div className="text-[var(--text-muted)]">Centro de Alertas (En construcción)</div>;
 const BehaviorPage = () => <div className="text-[var(--text-muted)]">Perfiles de Comportamiento (En construcción)</div>;
 
@@ -35,7 +35,7 @@ export function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/transactions" element={<TransactionExplorer />} />
             <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/behavior" element={<BehaviorPage />} />
           </Route>
