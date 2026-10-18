@@ -31,6 +31,9 @@ import numpy as np
 import pandas as pd
 
 
+from bisect import bisect_left
+
+
 def add_velocity_features_batch(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calcula velocity features para un DataFrame completo en modo batch (entrenamiento).
@@ -50,14 +53,15 @@ def add_velocity_features_batch(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame original con las velocity features añadidas.
     """
     df = df.copy().sort_values("timestamp").reset_index(drop=True)
+    n = len(df)
 
-    # Inicializar columnas de salida
-    df["tx_count_5min"] = 0
-    df["tx_count_1h"] = 0
-    df["tx_count_24h"] = 0
-    df["amount_sum_1h"] = 0.0
-    df["unique_merchants_24h"] = 0
-    df["unique_countries_24h"] = 0
+    # Pre-reservar arrays para asignación rápida
+    v_tx_count_5min = np.zeros(n, dtype=np.int32)
+    v_tx_count_1h = np.zeros(n, dtype=np.int32)
+    v_tx_count_24h = np.zeros(n, dtype=np.int32)
+    v_amount_sum_1h = np.zeros(n, dtype=np.float32)
+    v_unique_merchants_24h = np.zeros(n, dtype=np.int32)
+    v_unique_countries_24h = np.zeros(n, dtype=np.int32)
 
     # Agrupar por usuario para eficiencia
     for user_id, user_df in df.groupby("user_id", sort=False):
@@ -71,38 +75,30 @@ def add_velocity_features_batch(df: pd.DataFrame) -> pd.DataFrame:
         for i, idx in enumerate(indices):
             t_current = timestamps[i]
 
-            # Ventanas (excluye la transacción actual, solo hasta i)
+            # Ventanas (excluye la transacción actual, solo transacciones < i)
             t_5min = t_current - timedelta(minutes=5)
             t_1h = t_current - timedelta(hours=1)
             t_24h = t_current - timedelta(hours=24)
 
-            # Solo transacciones anteriores (j < i)
-            prev_timestamps = timestamps[:i]
-            prev_amounts = amounts[:i]
-            prev_merchants = merchants[:i]
-            prev_countries = countries[:i]
+            # Búsqueda binaria O(log i) en timestamps ordenados
+            j_5min = bisect_left(timestamps, t_5min, 0, i)
+            j_1h = bisect_left(timestamps, t_1h, 0, i)
+            j_24h = bisect_left(timestamps, t_24h, 0, i)
 
-            count_5min = sum(1 for t in prev_timestamps if t >= t_5min)
-            count_1h = sum(1 for t in prev_timestamps if t >= t_1h)
-            count_24h = sum(1 for t in prev_timestamps if t >= t_24h)
+            v_tx_count_5min[idx] = i - j_5min
+            v_tx_count_1h[idx] = i - j_1h
+            v_tx_count_24h[idx] = i - j_24h
 
-            sum_amount_1h = sum(
-                a for t, a in zip(prev_timestamps, prev_amounts) if t >= t_1h
-            )
-            unique_merch_24h = len(set(
-                m for t, m in zip(prev_timestamps, prev_merchants) if t >= t_24h
-            ))
-            unique_ctry_24h = len(set(
-                c for t, c in zip(prev_timestamps, prev_countries)
-                if t >= t_24h and c is not None
-            ))
+            v_amount_sum_1h[idx] = sum(amounts[j_1h:i])
+            v_unique_merchants_24h[idx] = len(set(merchants[j_24h:i]))
+            v_unique_countries_24h[idx] = len(set(c for c in countries[j_24h:i] if c is not None))
 
-            df.at[idx, "tx_count_5min"] = count_5min
-            df.at[idx, "tx_count_1h"] = count_1h
-            df.at[idx, "tx_count_24h"] = count_24h
-            df.at[idx, "amount_sum_1h"] = sum_amount_1h
-            df.at[idx, "unique_merchants_24h"] = unique_merch_24h
-            df.at[idx, "unique_countries_24h"] = unique_ctry_24h
+    df["tx_count_5min"] = v_tx_count_5min
+    df["tx_count_1h"] = v_tx_count_1h
+    df["tx_count_24h"] = v_tx_count_24h
+    df["amount_sum_1h"] = v_amount_sum_1h
+    df["unique_merchants_24h"] = v_unique_merchants_24h
+    df["unique_countries_24h"] = v_unique_countries_24h
 
     return df
 

@@ -1,9 +1,9 @@
 {
-  "version": "1.0.0",
-  "critical": 0.85,
-  "high": 0.65,
-  "medium": 0.40,
-  "last_tuned": "2026-08-22",
-  "validation_pr_auc": null,
-  "notes": "Thresholds iniciales. Ajustar tras threshold tuning en Validation set."
+  "version": "1.1.0",
+  "critical": 0.0812,
+  "high": 0.0609,
+  "medium": 0.0381,
+  "last_tuned": "2026-10-06T05:23:29.207586+00:00",
+  "validation_pr_auc": 0.9461,
+  "notes": "Tuned by train.py using cost-based optimization."
 }

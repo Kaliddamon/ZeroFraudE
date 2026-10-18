@@ -94,17 +94,62 @@ class TargetEncoderWithSmoothing(BaseEstimator, TransformerMixin):
         return X
 
 
+    def fit_transform(self, X: pd.DataFrame, y: pd.Series, cv: int = 5) -> pd.DataFrame:
+        """
+        Aplica Out-Of-Fold (OOF) Target Encoding durante el entrenamiento
+        para prevenir data leakage y overfitting severo.
+        """
+        self.fit(X, y)
+        if y is None or len(X) < cv * 2:
+            return self.transform(X)
+
+        from sklearn.model_selection import StratifiedKFold
+        X_out = X.copy()
+        skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+
+        for col in self.cols:
+            if col not in X.columns:
+                continue
+            encoded_col = f"{col}_target_enc"
+            encoded_series = pd.Series(index=X.index, dtype=float)
+
+            for train_idx, val_idx in skf.split(X, y):
+                X_tr, y_tr = X.iloc[train_idx], y.iloc[train_idx]
+                X_va = X.iloc[val_idx]
+
+                tr_mean = float(y_tr.mean())
+                stats = (
+                    pd.DataFrame({"cat": X_tr[col].astype(str), "target": y_tr.values})
+                    .groupby("cat")["target"]
+                    .agg(["count", "mean"])
+                )
+                n = stats["count"]
+                cat_mean = stats["mean"]
+                fold_smoothed = (n * cat_mean + self.smoothing * tr_mean) / (n + self.smoothing)
+                fold_map = fold_smoothed.to_dict()
+
+                encoded_series.iloc[val_idx] = (
+                    X_va[col].astype(str)
+                    .map(fold_map)
+                    .fillna(tr_mean)
+                )
+
+            X_out[encoded_col] = encoded_series
+
+        return X_out
+
+
 class FraudEncoderTransformer(BaseEstimator, TransformerMixin):
     """
     Codificador compuesto que aplica:
     1. OrdinalEncoding para columnas de media cardinalidad (country).
-    2. Target Encoding para columnas de alta cardinalidad (merchant_id, device_id).
+    2. Target Encoding con regularización OOF para columnas de alta cardinalidad (merchant_id, device_id).
     """
 
     ORDINAL_COLS = ["country"]
     HIGH_CARDINALITY_COLS = ["merchant_id", "device_id"]
 
-    def __init__(self, smoothing: float = 10.0) -> None:
+    def __init__(self, smoothing: float = 30.0) -> None:
         self.smoothing = smoothing
         self._ordinal_encoder = OrdinalEncoder(
             handle_unknown="use_encoded_value",
@@ -140,7 +185,33 @@ class FraudEncoderTransformer(BaseEstimator, TransformerMixin):
 
         # Target encoding
         X = self._target_encoder.transform(X)
+        if "merchant_id_target_enc" in X.columns and "merchant_target_enc" not in X.columns:
+            X["merchant_target_enc"] = X["merchant_id_target_enc"]
+        if "device_id_target_enc" in X.columns and "device_target_enc" not in X.columns:
+            X["device_target_enc"] = X["device_id_target_enc"]
         return X
 
     def fit_transform(self, X: pd.DataFrame, y: pd.Series = None, **fit_params) -> pd.DataFrame:
-        return self.fit(X, y).transform(X)
+        self.fit(X, y)
+        X_encoded = X.copy()
+
+        # Ordinal encoding
+        if self._ordinal_cols_present:
+            ordinal_present = [c for c in self._ordinal_cols_present if c in X.columns]
+            if ordinal_present:
+                encoded = self._ordinal_encoder.transform(X[ordinal_present].astype(str))
+                for i, col in enumerate(ordinal_present):
+                    X_encoded[f"{col}_encoded"] = encoded[:, i]
+
+        # OOF Target encoding
+        if y is not None:
+            X_encoded = self._target_encoder.fit_transform(X_encoded, y)
+        else:
+            X_encoded = self._target_encoder.transform(X_encoded)
+
+        if "merchant_id_target_enc" in X_encoded.columns and "merchant_target_enc" not in X_encoded.columns:
+            X_encoded["merchant_target_enc"] = X_encoded["merchant_id_target_enc"]
+        if "device_id_target_enc" in X_encoded.columns and "device_target_enc" not in X_encoded.columns:
+            X_encoded["device_target_enc"] = X_encoded["device_id_target_enc"]
+
+        return X_encoded

@@ -42,6 +42,13 @@ class LightGBMFraudModel(BaseFraudModel):
         min_child_samples: int = 20,
         colsample_bytree: float = 0.8,
         early_stopping_rounds: int = 50,
+        scale_pos_weight: Optional[float] = None,
+        scale_pos_weight_mode: str = "sqrt",
+        subsample: float = 0.8,
+        subsample_freq: int = 1,
+        reg_alpha: float = 0.1,
+        reg_lambda: float = 1.0,
+        max_depth: int = -1,
         random_state: int = 42,
         n_jobs: int = -1,
     ) -> None:
@@ -51,6 +58,13 @@ class LightGBMFraudModel(BaseFraudModel):
         self.min_child_samples = min_child_samples
         self.colsample_bytree = colsample_bytree
         self.early_stopping_rounds = early_stopping_rounds
+        self.scale_pos_weight = scale_pos_weight
+        self.scale_pos_weight_mode = scale_pos_weight_mode
+        self.subsample = subsample
+        self.subsample_freq = subsample_freq
+        self.reg_alpha = reg_alpha
+        self.reg_lambda = reg_lambda
+        self.max_depth = max_depth
         self.random_state = random_state
         self.n_jobs = n_jobs
 
@@ -65,10 +79,7 @@ class LightGBMFraudModel(BaseFraudModel):
         y_val: Optional[pd.Series] = None,
     ) -> "LightGBMFraudModel":
         """
-        Entrena LightGBM con scale_pos_weight automático.
-
-        El scale_pos_weight se calcula como n_negatives / n_positives,
-        dando mayor peso a cada ejemplo de fraude para compensar el imbalance.
+        Entrena LightGBM con scale_pos_weight calibrado y regularización.
         """
         n_pos = int(y_train.sum())
         n_neg = int((y_train == 0).sum())
@@ -76,7 +87,14 @@ class LightGBMFraudModel(BaseFraudModel):
         if n_pos == 0:
             raise ValueError("El training set no contiene ejemplos de fraude (is_fraud=1).")
 
-        scale_pos_weight = n_neg / n_pos
+        if self.scale_pos_weight is not None:
+            spw = float(self.scale_pos_weight)
+        elif self.scale_pos_weight_mode == "sqrt":
+            spw = float(np.sqrt(n_neg / n_pos))
+        elif self.scale_pos_weight_mode == "auto":
+            spw = float(n_neg / n_pos)
+        else:
+            spw = 1.0
 
         self._model = lgb.LGBMClassifier(
             objective="binary",
@@ -85,7 +103,12 @@ class LightGBMFraudModel(BaseFraudModel):
             num_leaves=self.num_leaves,
             min_child_samples=self.min_child_samples,
             colsample_bytree=self.colsample_bytree,
-            scale_pos_weight=scale_pos_weight,
+            scale_pos_weight=spw,
+            subsample=self.subsample,
+            subsample_freq=self.subsample_freq,
+            reg_alpha=self.reg_alpha,
+            reg_lambda=self.reg_lambda,
+            max_depth=self.max_depth,
             random_state=self.random_state,
             n_jobs=self.n_jobs,
             verbose=-1,  # Silenciar output de LightGBM durante entrenamiento

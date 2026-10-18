@@ -41,6 +41,8 @@ from src.preprocessing.imputer import FraudImputerTransformer
 from src.preprocessing.encoder import FraudEncoderTransformer
 from src.behavioral.profiler import BehavioralProfiler
 from src.features.feature_pipeline import MODEL_FEATURES, build_feature_matrix_batch
+from src.features.transaction_features import add_transaction_features
+from src.features.temporal_features import add_velocity_features_batch
 from src.models.lgbm_model import LightGBMFraudModel
 from src.models.logistic_model import LogisticFraudModel
 from src.anomaly.isolation_forest import FraudAnomalyDetector
@@ -76,7 +78,7 @@ def main():
     print("=" * 60)
 
     # ── 1. Carga de datos ──────────────────────────────────────────────────
-    print("\n[1/10] Loading data...")
+    print("\n[1/11] Loading data...")
     df = pd.read_csv(args.data)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     print(f"  Loaded {len(df):,} transactions | Fraud rate: {df['is_fraud'].mean():.2%}")
@@ -92,14 +94,22 @@ def main():
     df = df.drop_duplicates(subset=["transaction_id"])
     df = df[df["amount"] > 0].reset_index(drop=True)
 
-    # ── 2. Behavioral Profiling (en orden cronológico, ANTES del split) ────
-    print("\n[2/10] Building behavioral profiles (chronological order)...")
+    # ── 2. Feature engineering: Transaccionales ────────────────────────────
+    print("\n[2/11] Computing transaction features...")
+    df = add_transaction_features(df)
+
+    # ── 3. Feature engineering: Velocidad ──────────────────────────────────
+    print("\n[3/11] Computing velocity features (batch windowing)...")
+    df = add_velocity_features_batch(df)
+
+    # ── 4. Behavioral Profiling (en orden cronológico, ANTES del split) ────
+    print("\n[4/11] Building behavioral profiles (chronological order)...")
     profiler = BehavioralProfiler()
     df = profiler.fit_transform(df, window_days=config.features.behavioral_window_days)
     print(f"  Profiles built for {profiler.user_count:,} users")
 
-    # ── 3. División temporal ───────────────────────────────────────────────
-    print("\n[3/10] Temporal train/val/test split...")
+    # ── 5. División temporal ───────────────────────────────────────────────
+    print("\n[5/11] Temporal train/val/test split...")
     split = temporal_train_val_test_split(
         df,
         target_col="is_fraud",
@@ -109,8 +119,8 @@ def main():
     )
     print(split)
 
-    # ── 4. Imputation ─────────────────────────────────────────────────────
-    print("\n[4/10] Imputing missing values...")
+    # ── 6. Imputation ─────────────────────────────────────────────────────
+    print("\n[6/11] Imputing missing values...")
     imputer = FraudImputerTransformer()
     X_train = imputer.fit_transform(split.X_train)
     X_val = imputer.transform(split.X_val)
@@ -118,8 +128,8 @@ def main():
     joblib.dump(imputer, artifacts_dir / "imputer.joblib", compress=3)
     print(f"  Imputer fitted on training set and saved.")
 
-    # ── 5. Encoding ───────────────────────────────────────────────────────
-    print("\n[5/10] Encoding categorical features...")
+    # ── 7. Encoding ───────────────────────────────────────────────────────
+    print("\n[7/11] Encoding categorical features...")
     encoder = FraudEncoderTransformer(smoothing=10.0)
     X_train = encoder.fit_transform(X_train, split.y_train)
     X_val = encoder.transform(X_val)
@@ -127,8 +137,8 @@ def main():
     joblib.dump(encoder, artifacts_dir / "encoder.joblib", compress=3)
     print(f"  Encoder fitted on training set and saved.")
 
-    # ── 6. Feature matrix (selección de columnas del modelo) ──────────────
-    print("\n[6/10] Building feature matrix...")
+    # ── 8. Feature matrix (selección de columnas del modelo) ──────────────
+    print("\n[8/11] Building feature matrix...")
     # Seleccionar solo las features que el modelo espera
     available = [c for c in MODEL_FEATURES if c in X_train.columns]
     missing_feats = [c for c in MODEL_FEATURES if c not in X_train.columns]
@@ -148,8 +158,8 @@ def main():
     with open(artifacts_dir / "feature_config.json", "w") as f:
         json.dump(MODEL_FEATURES, f, indent=2)
 
-    # ── 7. Baseline (Logistic Regression) ─────────────────────────────────
-    print("\n[7/10] Training baseline (Logistic Regression)...")
+    # ── 9. Baseline (Logistic Regression) ─────────────────────────────────
+    print("\n[9/11] Training baseline (Logistic Regression)...")
     baseline = LogisticFraudModel(random_state=config.seed)
     baseline.fit(X_train, split.y_train)
     baseline_proba = baseline.predict_proba(X_val)
@@ -162,8 +172,8 @@ def main():
                  extra_info={"model_type": "LogisticRegression"})
     baseline.save(exp_dir / "baseline_model.joblib")
 
-    # ── 8. Modelo principal (LightGBM) ────────────────────────────────────
-    print("\n[8/10] Training main model (LightGBM)...")
+    # ── 10. Modelo principal (LightGBM) ───────────────────────────────────
+    print("\n[10/11] Training main model (LightGBM)...")
     lgbm = LightGBMFraudModel(
         n_estimators=config.model.n_estimators,
         learning_rate=config.model.learning_rate,
@@ -171,19 +181,27 @@ def main():
         min_child_samples=config.model.min_child_samples,
         colsample_bytree=config.model.colsample_bytree,
         early_stopping_rounds=config.model.early_stopping_rounds,
+        scale_pos_weight=getattr(config.model, "scale_pos_weight", None),
+        scale_pos_weight_mode=getattr(config.model, "scale_pos_weight_mode", "sqrt"),
+        subsample=getattr(config.model, "subsample", 0.8),
+        subsample_freq=getattr(config.model, "subsample_freq", 1),
+        reg_alpha=getattr(config.model, "reg_alpha", 0.1),
+        reg_lambda=getattr(config.model, "reg_lambda", 1.0),
+        max_depth=getattr(config.model, "max_depth", -1),
         random_state=config.seed,
     )
     lgbm.fit(X_train, split.y_train, X_val, split.y_val)
     print(f"  Best iteration: {lgbm.best_iteration}")
     lgbm.save(artifacts_dir / "fraud_model.joblib")
 
-    # ── 9. Threshold tuning ───────────────────────────────────────────────
-    print("\n[9/10] Threshold tuning on Validation set...")
+    # ── 11. Threshold tuning ──────────────────────────────────────────────
+    print("\n[11/11] Threshold tuning on Validation set...")
     lgbm_proba_val = lgbm.predict_proba(X_val)
     best_threshold, best_metrics = find_optimal_threshold(
         split.y_val.values, lgbm_proba_val,
         cost_fp=config.evaluation.cost_fp, cost_fn=config.evaluation.cost_fn,
     )
+
     print(f"  Optimal threshold: {best_threshold:.4f}")
 
     # Guardar métricas y threshold

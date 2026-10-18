@@ -14,7 +14,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -43,8 +43,8 @@ def _load_json(path: Path) -> Dict[str, Any]:
 
 @dataclass
 class DataConfig:
-    train_end_date: str
-    val_end_date: str
+    train_end_date: Optional[str] = None
+    val_end_date: Optional[str] = None
 
 
 @dataclass
@@ -63,6 +63,13 @@ class ModelConfig:
     min_child_samples: int
     colsample_bytree: float
     early_stopping_rounds: int
+    scale_pos_weight_mode: str = "sqrt"
+    scale_pos_weight: Optional[float] = None
+    subsample: float = 0.8
+    subsample_freq: int = 1
+    reg_alpha: float = 0.1
+    reg_lambda: float = 1.0
+    max_depth: int = -1
 
 
 @dataclass

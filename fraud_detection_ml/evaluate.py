@@ -29,6 +29,8 @@ from src.preprocessing.imputer import FraudImputerTransformer
 from src.preprocessing.encoder import FraudEncoderTransformer
 from src.behavioral.profiler import BehavioralProfiler
 from src.features.feature_pipeline import MODEL_FEATURES
+from src.features.transaction_features import add_transaction_features
+from src.features.temporal_features import add_velocity_features_batch
 from src.models.lgbm_model import LightGBMFraudModel
 from src.models.logistic_model import LogisticFraudModel
 from src.anomaly.isolation_forest import FraudAnomalyDetector
@@ -62,7 +64,9 @@ def main():
     df = pd.read_csv(args.data)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
-    # Re-construir behavioral features (order cronológico)
+    # Re-construir features completas (orden cronológico)
+    df = add_transaction_features(df)
+    df = add_velocity_features_batch(df)
     profiler = BehavioralProfiler()
     df = profiler.fit_transform(df, window_days=config.features.behavioral_window_days)
 

@@ -60,7 +60,7 @@ class FraudDetectionService:
         self._is_ready: bool = False
 
     @classmethod
-    def load(cls, version: str = "1.0.0", artifacts_dir: Optional[str] = None) -> "FraudDetectionService":
+    def load(cls, version: str = "1.1.0", artifacts_dir: Optional[str] = None) -> "FraudDetectionService":
         """
         Carga todos los artefactos desde disco e inicializa el servicio.
 

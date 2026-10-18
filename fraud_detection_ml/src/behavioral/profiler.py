@@ -83,20 +83,30 @@ class BehavioralProfiler:
             "is_new_device", "is_new_country", "is_new_merchant",
             "user_tx_count_30d", "days_since_last_tx",
         ]
-        for col in behavioral_cols:
-            df[col] = 0.0
+
+        n = len(df)
+        user_ids = df["user_id"].astype(str).tolist()
+        amounts = df["amount"].astype(float).tolist()
+        timestamps = df["timestamp"].tolist()
+        countries = df["country"].astype(str).tolist() if "country" in df.columns else ["UNKNOWN"] * n
+        device_ids = df["device_id"].astype(str).tolist() if "device_id" in df.columns else ["UNKNOWN"] * n
+        merchant_ids = df["merchant_id"].astype(str).tolist() if "merchant_id" in df.columns else ["UNKNOWN"] * n
+        is_frauds = df["is_fraud"].fillna(0).astype(int).tolist() if "is_fraud" in df.columns else [0] * n
+
+        col_to_idx = {col: idx for idx, col in enumerate(behavioral_cols)}
+        results = np.zeros((n, len(behavioral_cols)), dtype=np.float32)
 
         # Acumular datos de todos los usuarios para el perfil global
         all_amounts = []
 
-        for idx, row in df.iterrows():
-            user_id = str(row["user_id"])
-            amount = float(row["amount"])
-            ts = row["timestamp"]
-            country = str(row.get("country", "UNKNOWN"))
-            device_id = str(row.get("device_id", "UNKNOWN"))
-            merchant_id = str(row.get("merchant_id", "UNKNOWN"))
-            is_fraud = int(row.get("is_fraud", 0))
+        for i in range(n):
+            user_id = user_ids[i]
+            amount = amounts[i]
+            ts = timestamps[i]
+            country = countries[i]
+            device_id = device_ids[i]
+            merchant_id = merchant_ids[i]
+            is_fraud = is_frauds[i]
 
             # Obtener o crear perfil del usuario
             if user_id not in self._profiles:
@@ -115,9 +125,10 @@ class BehavioralProfiler:
                 cold_start_min_tx=self.COLD_START_MIN_TX,
             )
 
-            # Asignar features al DataFrame
+            # Asignar features en la matriz de resultados
             for col, val in features.items():
-                df.at[idx, col] = val
+                if col in col_to_idx:
+                    results[i, col_to_idx[col]] = val
 
             # Actualizar el perfil SOLO con transacciones legítimas
             # (Las fraudulentas no deben contaminar el perfil normal)
@@ -131,6 +142,10 @@ class BehavioralProfiler:
                 )
 
             all_amounts.append(amount)
+
+        # Asignar columnas calculadas al DataFrame
+        for col, idx in col_to_idx.items():
+            df[col] = results[:, idx]
 
         # Construir perfil global como estadística de todos los usuarios
         self._build_global_profile(all_amounts)
