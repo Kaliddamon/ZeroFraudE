@@ -21,7 +21,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Fraud Detection API")
-                        .version("1.0.0")
+                        .version("1.1.0")
                         .description("Backend API for Adaptive E-commerce Fraud Detection System. "
                                 + "Orchestrates transaction management, ML-based fraud analysis, "
                                 + "alert management, and dashboard statistics.")

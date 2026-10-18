@@ -12,6 +12,9 @@ spring:
   jpa:
     show-sql: true
 
+  flyway:
+    repair-on-migrate: true
+
 logging:
   level:
     com.frauddetection: DEBUG

@@ -22,8 +22,8 @@ public class RestTemplateConfig {
             @Value("${ml.service.timeout.read:5000}") int readTimeout) {
 
         return builder
-                .connectTimeout(Duration.ofMillis(connectTimeout))
-                .readTimeout(Duration.ofMillis(readTimeout))
+                .setConnectTimeout(Duration.ofMillis(connectTimeout))
+                .setReadTimeout(Duration.ofMillis(readTimeout))
                 .build();
     }
 }

@@ -20,11 +20,13 @@ public interface AlertRepository extends JpaRepository<Alert, UUID> {
      * All filter parameters are optional — when null, they are ignored.
      */
     @Query("""
-            SELECT a FROM Alert a
-            WHERE (:status IS NULL OR a.status = :status)
-              AND (:severity IS NULL OR a.severity = :severity)
-              AND (:from IS NULL OR a.createdAt >= :from)
-              AND (:to IS NULL OR a.createdAt <= :to)
+            SELECT DISTINCT a FROM Alert a
+            LEFT JOIN FETCH a.fraudAnalysis fa
+            LEFT JOIN FETCH fa.transaction
+            WHERE (cast(:status as string) IS NULL OR a.status = :status)
+              AND (cast(:severity as string) IS NULL OR a.severity = :severity)
+              AND (cast(:from as timestamp) IS NULL OR a.createdAt >= :from)
+              AND (cast(:to as timestamp) IS NULL OR a.createdAt <= :to)
             """)
     Page<Alert> findWithFilters(
             @Param("status") AlertStatus status,
