@@ -27,9 +27,9 @@ export function MLPipelineTelemetryBar() {
     },
     {
       icon: Target,
-      badge: 'COST-OPTIMIZED',
+      badge: 'TEST SET METRIC',
       badgeVariant: 'warning',
-      title: 'Operational Decision Cutoff',
+      title: 'Umbral de Evaluación (Test)',
       primaryValue: 'θ = 0.0812',
       metaLeft: 'Recall: 94.8% (401/423)',
       metaRight: 'Precision: 67.1%',

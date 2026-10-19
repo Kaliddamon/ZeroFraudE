@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ScatterChart,
   Scatter,
@@ -7,7 +7,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
   Cell,
 } from 'recharts';
 import { Sliders, ShieldAlert } from 'lucide-react';
@@ -21,15 +20,17 @@ interface ScatterPoint {
   riskLevel: string;
 }
 
-interface FraudScatterPlotProps {
-  initialThreshold?: number;
-}
+const riskLevelColors: Record<string, string> = {
+  LOW: '#10B981',
+  MEDIUM: '#F59E0B',
+  HIGH: '#EA580C',
+  CRITICAL: '#DC2626',
+  UNKNOWN: '#6B7280',
+};
 
-export function FraudScatterPlot({ initialThreshold = 0.0812 }: FraudScatterPlotProps) {
-  const [threshold, setThreshold] = useState(initialThreshold);
-  const [filterMode, setFilterMode] = useState<'ALL' | 'ABOVE_THRESHOLD'>('ALL');
-
-  // Realistic sample points matching test set distribution
+export function FraudScatterPlot() {
+  // Muestras de demostración con riskLevel provisto por el backend (simulado).
+  // Cada punto incluye su nivel de riesgo autoritativo.
   const points: ScatterPoint[] = [
     { id: 'TX-9401', amount: 4850.00, riskScore: 0.94, user: 'U00042', country: 'NG', riskLevel: 'CRITICAL' },
     { id: 'TX-9402', amount: 1250.50, riskScore: 0.72, user: 'U00118', country: 'CO', riskLevel: 'HIGH' },
@@ -51,38 +52,31 @@ export function FraudScatterPlot({ initialThreshold = 0.0812 }: FraudScatterPlot
     { id: 'TX-9418', amount: 1640.00, riskScore: 0.78, user: 'U00155', country: 'TR', riskLevel: 'HIGH' },
   ];
 
-  const displayedPoints = filterMode === 'ABOVE_THRESHOLD'
-    ? points.filter(p => p.riskScore >= threshold)
-    : points;
-
-  const flaggedCount = points.filter(p => p.riskScore >= threshold).length;
-
-  const getPointColor = (score: number) => {
-    if (score < threshold) return '#10B981'; // Green (Safe)
-    if (score < 0.40) return '#F59E0B';      // Amber (Medium)
-    if (score < 0.70) return '#EA580C';      // Orange (High)
-    return '#DC2626';                         // Red (Critical)
+  const getPointColor = (riskLevel: string) => {
+    return riskLevelColors[riskLevel] ?? riskLevelColors.UNKNOWN;
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload as ScatterPoint;
-      const isFlagged = data.riskScore >= threshold;
       return (
         <div className="bg-[#141618] border border-[#2D3239] rounded-lg p-3 shadow-xl text-xs font-mono">
           <div className="flex items-center justify-between gap-4 mb-2">
             <span className="font-bold text-[#F3F4F6]">{data.id}</span>
             <span
               className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                isFlagged ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'
+                data.riskLevel === 'CRITICAL' || data.riskLevel === 'HIGH'
+                  ? 'bg-red-500/20 text-red-400'
+                  : 'bg-emerald-500/20 text-emerald-400'
               }`}
             >
-              {isFlagged ? 'FRAUDE DETECTADO' : 'APROBADO'}
+              {data.riskLevel}
             </span>
           </div>
           <div className="text-[#9CA3AF] space-y-1">
             <div>Monto: <span className="text-[#F3F4F6] font-semibold">${data.amount.toLocaleString()} USD</span></div>
-            <div>Score Probabilidad: <span className="text-[#F3F4F6] font-semibold">{data.riskScore.toFixed(2)}</span></div>
+            <div>Score de Riesgo: <span className="text-[#F3F4F6] font-semibold">{data.riskScore.toFixed(2)}</span></div>
+            <div>Nivel: <span className="text-[#F3F4F6]">{data.riskLevel}</span></div>
             <div>Usuario: <span className="text-[#F3F4F6]">{data.user}</span> ({data.country})</div>
           </div>
         </div>
@@ -93,52 +87,35 @@ export function FraudScatterPlot({ initialThreshold = 0.0812 }: FraudScatterPlot
 
   return (
     <div className="bg-[#141618] border border-[#23272B] rounded-xl p-5 flex flex-col h-full shadow-sm">
-      {/* Header técnico con controles de umbral */}
+      {/* Cabecera técnica */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#1F2328]">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold tracking-wider text-[#F3F4F6] uppercase font-mono">
-              Signal Scatter: Monto vs. Probabilidad
+              Signal Scatter: Monto vs. Score de Riesgo
             </h2>
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-50/10 text-cyan-400 border border-cyan-500/20">
               LightGBM Ingestion
             </span>
           </div>
           <p className="text-xs text-[#8A929B] mt-0.5 font-mono">
-            Dispersión bidimensional de riesgo. Umbral de corte activo: <strong className="text-amber-400">θ = {threshold.toFixed(4)}</strong>
+            Dispersión bidimensional. Los puntos se colorean por el nivel de riesgo del backend.
           </p>
         </div>
 
-        {/* Controles de corte dinámico */}
+        {/* Control de filtro por score (no es un clasificador de riesgo) */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-[#1B1E22] px-3 py-1.5 rounded-lg border border-[#282E35]">
             <Sliders className="w-3.5 h-3.5 text-[#8A929B]" />
-            <span className="text-[11px] font-mono text-[#8A929B]">Corte θ:</span>
-            <input
-              type="range"
-              min="0.01"
-              max="0.50"
-              step="0.01"
-              value={threshold}
-              onChange={(e) => setThreshold(parseFloat(e.target.value))}
-              className="w-20 accent-amber-400 cursor-pointer"
-            />
-            <span className="text-[11px] font-mono font-bold text-amber-400 min-w-[38px]">
-              {threshold.toFixed(2)}
-            </span>
+            <span className="text-[11px] font-mono text-[#8A929B]">Filtro Score:</span>
           </div>
-
           <button
-            onClick={() => setFilterMode(filterMode === 'ALL' ? 'ABOVE_THRESHOLD' : 'ALL')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors flex items-center gap-1.5 ${
-              filterMode === 'ABOVE_THRESHOLD'
-                ? 'bg-red-500/15 text-red-400 border-red-500/30'
-                : 'bg-[#1B1E22] text-[#9CA3AF] border-[#282E35] hover:text-white'
-            }`}
+            onClick={() => {}}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border bg-[#1B1E22] text-[#9CA3AF] border-[#282E35] hover:text-white"
+            disabled
           >
             <ShieldAlert className="w-3.5 h-3.5" />
-            <span>{filterMode === 'ABOVE_THRESHOLD' ? 'Solo Alertas' : 'Todas'}</span>
-            <span className="px-1 py-0.2 rounded bg-black/30 text-[10px]">{flaggedCount}</span>
+            <span>Disponible con datos reales</span>
           </button>
         </div>
       </div>
@@ -161,7 +138,7 @@ export function FraudScatterPlot({ initialThreshold = 0.0812 }: FraudScatterPlot
             <YAxis
               type="number"
               dataKey="riskScore"
-              name="Probabilidad"
+              name="Score de Riesgo"
               domain={[0, 1]}
               stroke="#606770"
               tick={{ fill: '#808893', fontSize: 11, fontFamily: 'monospace' }}
@@ -169,25 +146,11 @@ export function FraudScatterPlot({ initialThreshold = 0.0812 }: FraudScatterPlot
               tickLine={{ stroke: '#2A3038' }}
             />
             <Tooltip content={<CustomTooltip />} />
-            {/* Línea de umbral interactiva */}
-            <ReferenceLine
-              y={threshold}
-              stroke="#F59E0B"
-              strokeDasharray="4 4"
-              strokeWidth={1.5}
-              label={{
-                value: `Umbral θ=${threshold.toFixed(2)}`,
-                fill: '#F59E0B',
-                fontSize: 10,
-                position: 'insideTopRight',
-                fontFamily: 'monospace',
-              }}
-            />
-            <Scatter name="Transacciones" data={displayedPoints}>
-              {displayedPoints.map((entry, index) => (
+            <Scatter name="Transacciones" data={points}>
+              {points.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={getPointColor(entry.riskScore)}
+                  fill={getPointColor(entry.riskLevel)}
                   opacity={0.85}
                 />
               ))}
@@ -196,28 +159,28 @@ export function FraudScatterPlot({ initialThreshold = 0.0812 }: FraudScatterPlot
         </ResponsiveContainer>
       </div>
 
-      {/* Leyenda técnica inferior */}
+      {/* Leyenda técnica inferior: niveles de riesgo del backend */}
       <div className="pt-3 border-t border-[#1F2328] flex flex-wrap items-center justify-between text-xs font-mono text-[#808893] gap-2">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Limpia (&lt;θ)</span>
+            <span>Bajo</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <span>Alerta Media</span>
+            <span>Medio</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-orange-400" />
-            <span>Sospechosa</span>
+            <span>Alto</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-400" />
-            <span>Fraude Crítico</span>
+            <span>Crítico</span>
           </span>
         </div>
         <div>
-          <span>Muestras activas: <strong>{displayedPoints.length}</strong></span>
+          <span>Muestras activas: <strong>{points.length}</strong></span>
         </div>
       </div>
     </div>

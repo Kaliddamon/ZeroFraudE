@@ -147,7 +147,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Scatter Plot (Propuesta C) */}
         <div className="lg:col-span-2">
-          <FraudScatterPlot initialThreshold={0.0812} />
+          <FraudScatterPlot />
         </div>
 
         {/* Distribución de Severidad */}
@@ -232,7 +232,7 @@ export function DashboardPage() {
                 <th className="py-2.5 px-4">Usuario</th>
                 <th className="py-2.5 px-4">País</th>
                 <th className="py-2.5 px-4">Monto ($ USD)</th>
-                <th className="py-2.5 px-4">Score Probabilidad</th>
+                <th className="py-2.5 px-4">Score de Riesgo</th>
                 <th className="py-2.5 px-4">Severidad</th>
               </tr>
             </thead>
@@ -261,7 +261,7 @@ export function DashboardPage() {
                         ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 px-4 w-44">
-                        <ModelScoreBar score={tx.riskScore} threshold={0.0812} />
+                        <ModelScoreBar score={tx.riskScore} riskLevel={tx.riskLevel} />
                       </td>
                       <td className="py-3 px-4">
                         <RiskBadge level={tx.riskLevel} />

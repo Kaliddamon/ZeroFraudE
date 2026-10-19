@@ -74,7 +74,7 @@ export default function TransactionExplorer() {
             Registro de Ingestión y Decisiones de Riesgo
           </span>
           <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            LightGBM v1.1.0 · θ = 0.0812
+            LightGBM v1.1.0
           </span>
         </div>
 
@@ -109,10 +109,10 @@ export default function TransactionExplorer() {
               }}
             >
               <option value="" className="bg-[#141618]">Todos los Riesgos</option>
-              <option value="CRITICAL" className="bg-[#141618]">Crítico (&gt;0.70)</option>
-              <option value="HIGH" className="bg-[#141618]">Alto (0.40 - 0.70)</option>
-              <option value="MEDIUM" className="bg-[#141618]">Medio (θ - 0.40)</option>
-              <option value="LOW" className="bg-[#141618]">Bajo (&lt;θ 0.0812)</option>
+              <option value="CRITICAL" className="bg-[#141618]">Crítico</option>
+              <option value="HIGH" className="bg-[#141618]">Alto</option>
+              <option value="MEDIUM" className="bg-[#141618]">Medio</option>
+              <option value="LOW" className="bg-[#141618]">Bajo</option>
             </select>
           </div>
 
@@ -156,7 +156,7 @@ export default function TransactionExplorer() {
                   <th className="py-3 px-4">Fecha / Hora</th>
                   <th className="py-3 px-4">Usuario / País</th>
                   <th className="py-3 px-4">Monto</th>
-                  <th className="py-3 px-4">Probabilidad (θ = 0.0812)</th>
+                  <th className="py-3 px-4">Score de Riesgo</th>
                   <th className="py-3 px-4">Evaluación</th>
                 </tr>
               </thead>
@@ -194,7 +194,7 @@ export default function TransactionExplorer() {
                         {formatCurrency(tx.amount)}
                       </td>
                       <td className="py-3 px-4 w-44">
-                        <ModelScoreBar score={tx.riskScore} threshold={0.0812} />
+                        <ModelScoreBar score={tx.riskScore} riskLevel={tx.riskLevel} />
                       </td>
                       <td className="py-3 px-4">
                         <RiskBadge level={tx.riskLevel} />
