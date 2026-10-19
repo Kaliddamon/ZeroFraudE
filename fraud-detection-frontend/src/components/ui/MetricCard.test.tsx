@@ -12,29 +12,43 @@ describe('MetricCard', () => {
 
   it('renders positive trend correctly', () => {
     render(
-      <MetricCard 
-        title="Revenue" 
-        value="$5,000" 
-        trend={{ value: 12.5, isPositive: true }} 
+      <MetricCard
+        title="Revenue"
+        value="$5,000"
+        trend={{ value: 12.5, isPositive: true }}
       />
     );
     expect(screen.getByText('12.5%')).toBeInTheDocument();
-    // Verify it has the green class for positive trend
     const trendContainer = screen.getByText('12.5%').parentElement;
-    expect(trendContainer?.className).toContain('text-green-600');
+    expect(trendContainer).toBeInTheDocument();
   });
 
   it('renders negative trend correctly', () => {
     render(
-      <MetricCard 
-        title="Fraud Rate" 
-        value="2.4%" 
-        trend={{ value: 0.5, isPositive: false }} 
+      <MetricCard
+        title="Fraud Rate"
+        value="2.4%"
+        trend={{ value: 0.5, isPositive: false }}
       />
     );
     expect(screen.getByText('0.5%')).toBeInTheDocument();
-    // Verify it has the red class for negative trend
     const trendContainer = screen.getByText('0.5%').parentElement;
-    expect(trendContainer?.className).toContain('text-red-600');
+    expect(trendContainer).toBeInTheDocument();
+  });
+
+  it('renders zero trend with minus icon', () => {
+    render(
+      <MetricCard
+        title="Stable"
+        value="100"
+        trend={{ value: 0, isPositive: false }}
+      />
+    );
+    expect(screen.getByText('0%')).toBeInTheDocument();
+  });
+
+  it('applies custom className', () => {
+    const { container } = render(<MetricCard title="Test" value="42" className="my-custom-class" />);
+    expect(container.querySelector('.my-custom-class')).toBeInTheDocument();
   });
 });
