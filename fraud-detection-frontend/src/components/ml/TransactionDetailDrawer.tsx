@@ -1,8 +1,11 @@
 import React from 'react';
-import { X, ShieldAlert, Cpu, CheckCircle2, Ban } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { X, ShieldAlert, Cpu, CheckCircle2, Ban, RefreshCw } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { ModelScoreBar } from './ModelScoreBar';
+import { fetchTransactionDetail } from '@/services/api/transactions.service';
 import type { TransactionSummary } from '@/types/transaction.types';
+import type { TransactionDetail } from '@/types/transaction.types';
 
 interface TransactionDetailDrawerProps {
   transaction: TransactionSummary | null;
@@ -10,17 +13,19 @@ interface TransactionDetailDrawerProps {
 }
 
 export function TransactionDetailDrawer({ transaction, onClose }: TransactionDetailDrawerProps) {
+  const { data: detail, isLoading: detailLoading, error: detailError, refetch } = useQuery<TransactionDetail>({
+    queryKey: ['transaction-detail', transaction?.transactionId ?? ''],
+    queryFn: async () => {
+      if (!transaction?.transactionId) throw new Error('No transaction ID');
+      return fetchTransactionDetail(transaction.transactionId);
+    },
+    enabled: !!transaction?.transactionId,
+  });
+
   if (!transaction) return null;
 
-  // Mock SHAP-style feature attribution breakdown
-  const featureWeights = [
-    { feature: 'amount_ratio_to_user_avg', value: '32.3x', weight: '+0.42', positive: true },
-    { feature: 'device_is_new_flag', value: 'True (D_NEW_823461)', weight: '+0.28', positive: true },
-    { feature: 'geo_distance_from_last_tx', value: '8,420 km (NG)', weight: '+0.19', positive: true },
-    { feature: 'tx_velocity_last_1h', value: '7 tx / hour', weight: '+0.12', positive: true },
-    { feature: 'merchant_category_risk', value: 'Digital Goods (M0172)', weight: '+0.08', positive: true },
-    { feature: 'account_tenure_days', value: '412 days', weight: '-0.15', positive: false },
-  ];
+  const analysis = detail?.analysis ?? null;
+  const explanations = analysis?.explanations ?? [];
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end animate-fade-in">
@@ -63,9 +68,9 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
             </div>
 
             <div className="bg-[#1A1D20] border border-[#262B30] rounded-lg p-3">
-              <span className="text-[10px] font-mono uppercase text-[#808893]">Score de Fraude</span>
+              <span className="text-[10px] font-mono uppercase text-[#808893]">Score de Riesgo</span>
               <div className="mt-1">
-                <ModelScoreBar score={transaction.riskScore} threshold={0.0812} showLabel={true} />
+                <ModelScoreBar score={transaction.riskScore} riskLevel={transaction.riskLevel} showLabel={true} />
               </div>
             </div>
 
@@ -84,46 +89,60 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
             </div>
           </div>
 
-          {/* Model Explainability / SHAP Features */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold text-[#F3F4F6] flex items-center gap-1.5 uppercase tracking-wider">
-                <Cpu className="w-4 h-4 text-cyan-400" />
-                SHAP Feature Attribution (Top 6)
-              </span>
-              <span className="text-[10px] font-mono text-[#8A929B]">
-                Impacto en Score
-              </span>
+          {/* Loading state */}
+          {detailLoading && (
+            <div className="p-3.5 rounded-xl bg-[#1A1D20] border border-[#262B30] flex flex-col items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
+              <span className="text-xs font-mono text-[#8A929B]">Cargando detalles de la transacción…</span>
             </div>
+          )}
 
-            <div className="space-y-2 bg-[#171A1D] border border-[#262B30] rounded-xl p-3">
-              {featureWeights.map((f, i) => (
-                <div key={i} className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-[#21252A] last:border-0">
-                  <div className="flex flex-col truncate pr-2">
-                    <span className="text-[#D1D5DB] font-medium truncate">{f.feature}</span>
-                    <span className="text-[11px] text-[#808893]">{f.value}</span>
-                  </div>
-                  <div className={`font-bold px-1.5 py-0.5 rounded text-[11px] font-mono ${
-                    f.positive
-                      ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  }`}>
-                    {f.weight}
-                  </div>
+          {/* Error state */}
+          {detailError && !detailLoading && (
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs font-mono text-red-400 space-y-1">
+              <div className="font-bold uppercase tracking-wider text-red-400">
+                Error al cargar detalles
+              </div>
+              <p className="text-red-300/80 text-[11px]">
+                No se pudo obtener la explicación del modelo para esta transacción.
+              </p>
+              <button
+                onClick={() => refetch()}
+                className="px-3 py-1 rounded bg-[#1F2328] hover:bg-[#282E35] text-[#8A929B] border border-[#30363D] text-xs"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {/* Explanations section (only when detail is available and not loading) */}
+          {detail && !detailLoading && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-semibold text-[#F3F4F6] flex items-center gap-1.5 uppercase tracking-wider">
+                  <Cpu className="w-4 h-4 text-cyan-400" />
+                  Explicación del modelo
+                </span>
+              </div>
+
+              {explanations.length === 0 ? (
+                <div className="p-3.5 rounded-xl bg-[#1A1D20] border border-[#262B30] text-xs font-mono text-[#8A929B]">
+                  <p className="text-[#808893]">El modelo no proporcionó explicaciones para esta transacción.</p>
                 </div>
-              ))}
+              ) : (
+                <div className="bg-[#171A1D] border border-[#262B30] rounded-xl p-3 space-y-2">
+                  {explanations.map((explanation, i) => (
+                    <div key={i} className="flex items-start justify-between text-xs font-mono py-1.5 border-b border-[#21252A] last:border-0">
+                      <div className="flex flex-col truncate pr-2">
+                        <span className="text-[#D1D5DB] font-medium truncate">Factor {i + 1}</span>
+                        <span className="text-[11px] text-[#808893]">{explanation}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Decision Recommendation */}
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-300 space-y-1">
-            <div className="font-bold uppercase tracking-wider text-amber-400">
-              Recomendación Automática del Modelo
-            </div>
-            <p className="text-amber-200/80 text-[11px]">
-              El score ({transaction.riskScore.toFixed(2)}) supera ampliamente el umbral operativo óptimo (θ = 0.0812). Se aconseja bloqueo cautelar y solicitud de 3D-Secure.
-            </p>
-          </div>
+          )}
         </div>
 
         {/* Drawer Actions */}
