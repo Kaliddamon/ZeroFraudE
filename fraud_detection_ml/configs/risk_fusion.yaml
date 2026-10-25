@@ -5,13 +5,25 @@
 # ============================================================
 
 # Pesos base (usuario con perfil establecido)
+# Arquitectura v3.1.1 (Híbrida con señal de escalada separada):
+# - risk_score = fraud_probability (pesos 1.00/0.00/0.00). fraud_probability está bien
+#   calibrado (Brier=0.0180) y tiene excelente discriminación (PR-AUC=0.8112, ROC-AUC=0.9565).
+# - behavioral_deviation es inútil solo (ROC-AUC=0.5000) -> peso 0.00.
+# - anomaly_score NO se suma a risk_score (evita doble contabilización con fraud_probability,
+#   correlación 0.458). Se usa como señal separada de escalada (anomaly_alert).
+# - anomaly_alert se activa cuando anomaly_score >= anomaly_alert_threshold.
+#   Es una señal informativa para revisión manual, no implica que la transacción sea fraude.
 weights:
-  fraud_probability: 0.60
-  anomaly_score: 0.25
-  behavioral_deviation: 0.15
+  fraud_probability: 1.00
+  anomaly_score: 0.00
+  behavioral_deviation: 0.00
+
+# Umbral de escalada por anomalía (señal separada de anomaly_alert)
+anomaly_alert_threshold: 0.70
 
 # Pesos para usuarios en cold start (< cold_start_min_transactions)
+# En cold start no hay behavioral_deviation significativo; se usa fraud_probability y anomaly_score.
 cold_start_weights:
-  fraud_probability: 0.70
-  anomaly_score: 0.30
+  fraud_probability: 0.85
+  anomaly_score: 0.15
   behavioral_deviation: 0.00

@@ -57,22 +57,24 @@ export function formatRelative(iso: string): string {
 
 /** Obtiene las clases CSS correspondientes al nivel de riesgo */
 export function riskClass(level: RiskLevel): string {
-  return {
+  const map: Record<RiskLevel, string> = {
     LOW:      'risk-low',
     MEDIUM:   'risk-medium',
     HIGH:     'risk-high',
     CRITICAL: 'risk-critical',
-  }[level];
+  };
+  return map[level];
 }
 
 /** Etiqueta en español para nivel de riesgo */
 export function riskLabel(level: RiskLevel): string {
-  return {
+  const map: Record<RiskLevel, string> = {
     LOW:      'Bajo',
     MEDIUM:   'Medio',
     HIGH:     'Alto',
     CRITICAL: 'Crítico',
-  }[level];
+  };
+  return map[level];
 }
 
 /** Trunca texto con ellipsis */

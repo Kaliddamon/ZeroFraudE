@@ -48,11 +48,12 @@ apiClient.interceptors.response.use(
     const status = error.response?.status ?? 0;
     const data   = error.response?.data;
 
-    // Session expired
-    if (status === 401) {
+    // Session expired or forbidden — token invalid/expired (backend may return 401 or 403)
+    const isAuthEndpoint = error.config?.url?.includes('/auth/login');
+    if ((status === 401 || status === 403) && !isAuthEndpoint) {
       localStorage.removeItem('zfe_token');
       window.location.href = '/login';
-      return Promise.reject(new AppError('SESSION_EXPIRED', 'Sesión expirada. Inicia sesión nuevamente.', 401));
+      return Promise.reject(new AppError('SESSION_EXPIRED', 'Sesión expirada. Inicia sesión nuevamente.', status));
     }
 
     const appError = new AppError(

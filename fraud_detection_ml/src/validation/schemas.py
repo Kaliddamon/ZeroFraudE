@@ -176,6 +176,14 @@ class PredictionOutput(BaseModel):
             "El Backend puede usar este flag para ajustar la comunicación al usuario."
         ),
     )
+    anomaly_alert: bool = Field(
+        default=False,
+        description=(
+            "True si anomaly_score supera el umbral de escalada configurado. "
+            "Es una señal separada de riesgo que justifica revisión manual, "
+            "independientemente de risk_level. No implica que la transacción sea fraude."
+        ),
+    )
 
     model_config = {"json_schema_extra": {"example": {
         "transaction_id": "T001",

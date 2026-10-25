@@ -67,11 +67,17 @@ public class TransactionController {
         // Cap page size at 100
         size = Math.min(size, 100);
 
-        // Parse sort parameter
+        // Parse sort parameter safely — invalid direction falls back to DESC
         String[] sortParts = sort.split(",");
-        Sort sortObj = sortParts.length > 1
-                ? Sort.by(Sort.Direction.fromString(sortParts[1]), sortParts[0])
-                : Sort.by(Sort.Direction.DESC, sortParts[0]);
+        Sort.Direction direction;
+        try {
+            direction = sortParts.length > 1
+                    ? Sort.Direction.fromString(sortParts[1].trim())
+                    : Sort.Direction.DESC;
+        } catch (IllegalArgumentException e) {
+            direction = Sort.Direction.DESC;
+        }
+        Sort sortObj = Sort.by(direction, sortParts[0].trim());
 
         Pageable pageable = PageRequest.of(page, size, sortObj);
 

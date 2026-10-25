@@ -5,47 +5,47 @@
 
 /* ── CSS Custom Properties — Fintech Intelligence Design System ─────────────── */
 :root {
-  /* Backgrounds */
-  --bg-deep:     #020814;
-  --bg-base:     #050A14;
-  --bg-surface:  #0B1426;
-  --bg-elevated: #112039;
-  --bg-hover:    #162B4A;
+  /* Backgrounds — Swiss Graphite */
+  --bg-deep:     #08090A;
+  --bg-base:     #0C0D0E;
+  --bg-surface:  #141618;
+  --bg-elevated: #1B1E22;
+  --bg-hover:    #22262B;
 
-  /* Brand */
-  --brand:       #1A56DB;
-  --brand-glow:  rgba(26, 86, 219, 0.35);
-  --brand-light: #3B82F6;
-  --brand-ice:   rgba(59, 130, 246, 0.12);
+  /* Brand / Tech Accent */
+  --brand:       #06B6D4;
+  --brand-glow:  rgba(6, 182, 212, 0.25);
+  --brand-light: #22D3EE;
+  --brand-ice:   rgba(6, 182, 212, 0.10);
 
   /* Gold / Premium */
   --gold:        #C9A227;
-  --gold-glow:   rgba(201, 162, 39, 0.35);
+  --gold-glow:   rgba(201, 162, 39, 0.25);
   --gold-light:  #F5D87E;
 
   /* Text */
-  --text-primary:   #E2EBF8;
-  --text-secondary: #8EABC8;
-  --text-muted:     #4A6B8A;
-  --text-disabled:  #2A4060;
+  --text-primary:   #F3F4F6;
+  --text-secondary: #9CA3AF;
+  --text-muted:     #808893;
+  --text-disabled:  #4B5563;
 
-  /* Borders */
-  --border-subtle:  rgba(99, 179, 237, 0.08);
-  --border-default: rgba(99, 179, 237, 0.14);
-  --border-strong:  rgba(99, 179, 237, 0.28);
-  --border-brand:   rgba(26, 86, 219, 0.50);
+  /* Borders — Technical 1px */
+  --border-subtle:  #1F2328;
+  --border-default: #282E35;
+  --border-strong:  #383E46;
+  --border-brand:   rgba(6, 182, 212, 0.40);
 
-  /* Risk */
+  /* Risk Semantics */
   --risk-low:      #10B981;
   --risk-medium:   #F59E0B;
-  --risk-high:     #EF4444;
+  --risk-high:     #EA580C;
   --risk-critical: #DC2626;
 
   /* Spacing / Radius */
   --radius-sm:  6px;
   --radius-md:  10px;
-  --radius-lg:  16px;
-  --radius-xl:  24px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
   --radius-pill: 9999px;
 
   /* Transitions */
@@ -73,10 +73,6 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
-  /* Subtle noise texture for premium feel */
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(26,86,219,0.06) 0%, transparent 60%),
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
 }
 
 #root {

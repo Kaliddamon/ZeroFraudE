@@ -106,19 +106,23 @@ def find_optimal_threshold(
     y_proba: np.ndarray,
     cost_fp: float = 5.0,
     cost_fn: float = 150.0,
+    criterion: str = "cost",
 ) -> Tuple[float, Dict[str, float]]:
     """
-    Encuentra el umbral óptimo minimizando el costo total.
+    Encuentra el umbral óptimo según el criterio seleccionado.
 
-    Evalúa todos los umbrales de la curva PR y selecciona el que minimiza:
-        Cost = FP_count * cost_FP + FN_count * cost_FN
+    Criterios disponibles:
+        - "cost": minimiza FP_count * cost_FP + FN_count * cost_FN
+        - "f1": maximiza el F1-Score
+        - "f2": maximiza el F2-Score (da el doble de peso a recall sobre precision)
 
     Parameters
     ----------
-    y_true  : Array de etiquetas reales.
-    y_proba : Array de probabilidades predichas.
-    cost_fp : Costo de un falso positivo.
-    cost_fn : Costo de un falso negativo.
+    y_true    : Array de etiquetas reales.
+    y_proba   : Array de probabilidades predichas.
+    cost_fp   : Costo de un falso positivo.
+    cost_fn   : Costo de un falso negativo.
+    criterion : Criterio de optimización ("cost", "f1", "f2").
 
     Returns
     -------
@@ -128,15 +132,29 @@ def find_optimal_threshold(
     precisions, recalls, thresholds = precision_recall_curve(y_true, y_proba)
 
     best_threshold = 0.5
-    best_cost = float("inf")
+    best_score = float("inf") if criterion == "cost" else -1.0
 
     for threshold in thresholds:
         y_pred = (y_proba >= threshold).astype(int)
         tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
-        cost = fp * cost_fp + fn * cost_fn
-        if cost < best_cost:
-            best_cost = cost
-            best_threshold = float(threshold)
+
+        if criterion == "cost":
+            cost = fp * cost_fp + fn * cost_fn
+            if cost < best_score:
+                best_score = cost
+                best_threshold = float(threshold)
+        elif criterion == "f1":
+            f1 = (2.0 * tp) / (2.0 * tp + fp + fn + 1e-9)
+            if f1 > best_score:
+                best_score = f1
+                best_threshold = float(threshold)
+        elif criterion == "f2":
+            f2 = (5.0 * tp) / (5.0 * tp + fp + 4.0 * fn + 1e-9)
+            if f2 > best_score:
+                best_score = f2
+                best_threshold = float(threshold)
+        else:
+            raise ValueError(f"Unknown criterion: {criterion}. Use 'cost', 'f1', or 'f2'.")
 
     metrics = compute_all_metrics(y_true, y_proba, threshold=best_threshold, cost_fp=cost_fp, cost_fn=cost_fn)
     return best_threshold, metrics

@@ -204,20 +204,40 @@ class FraudExplainer:
         try:
             # Extraer valores específicos para placeholders
             if "{multiplier" in template:
-                # Para amount_z_score: convertir z-score a multiplicador
+                # Para amount_z_score: convertir z-score a multiplicador.
+                # Solo retornar si el importe está realmente por encima del
+                # promedio del usuario (multiplicador > 1.0). Un ratio < 1.0 no
+                # puede describirse como "above user average".
                 z = extra_values.get("amount_z_score", feature_value)
                 avg = extra_values.get("user_avg_amount_30d", 1.0)
                 amount = extra_values.get("amount", 0.0)
+                is_cold_start = extra_values.get("is_cold_start", False)
                 multiplier = amount / (avg + 1e-6) if avg > 0 else abs(z)
-                return template.format(multiplier=max(1.0, multiplier))
+                if multiplier <= 1.0 or is_cold_start:
+                    return None
+                return template.format(multiplier=multiplier)
             elif "{value" in template:
                 return template.format(value=feature_value)
             else:
-                # Template sin placeholders: solo retornar si la feature está activa
-                if abs(feature_value) > 0.1 or feature_name in (
+                # Template sin placeholders: solo retornar si la feature está activa con evidencia real
+                if feature_name == "amount_log":
+                    # Solo marcar como importe alto si supera el promedio del usuario
+                    # o tiene z-score elevado. En cold start no hay referencia real
+                    # de usuario, por lo que se omite.
+                    ratio = extra_values.get("amount_ratio_to_avg", 1.0)
+                    z = extra_values.get("amount_z_score", 0.0)
+                    is_cold_start = extra_values.get("is_cold_start", False)
+                    if is_cold_start or (ratio <= 2.0 and abs(z) <= 2.0):
+                        return None
+                    return template
+                elif feature_name in (
                     "is_new_device", "is_new_country", "is_new_merchant",
                     "is_night", "is_duplicate_candidate"
                 ):
+                    # Flags binarios: solo retornar si el flag está realmente activado (valor > 0.5)
+                    if feature_value > 0.5:
+                        return template
+                elif abs(feature_value) > 0.1:
                     return template
         except Exception:
             return None

@@ -3,6 +3,7 @@ package com.frauddetection.repository;
 import com.frauddetection.domain.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,18 +22,33 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     /**
      * Dynamic filtered query for the Transaction Explorer.
      * All filter parameters are optional — when null, they are ignored.
+     *
+     * NOTE: Does NOT use JOIN FETCH with Pageable to avoid Hibernate in-memory pagination.
+     * FraudAnalysis is loaded via @EntityGraph after pagination.
      */
-    @Query("""
+    @Query(value = """
             SELECT t FROM Transaction t
             LEFT JOIN t.fraudAnalysis fa
-            WHERE (:externalUserId IS NULL OR t.externalUserId = :externalUserId)
-              AND (:country IS NULL OR t.country = :country)
-              AND (:from IS NULL OR t.timestamp >= :from)
-              AND (:to IS NULL OR t.timestamp <= :to)
-              AND (:minAmount IS NULL OR t.amount >= :minAmount)
-              AND (:maxAmount IS NULL OR t.amount <= :maxAmount)
-              AND (:riskLevel IS NULL OR fa.riskLevel = :riskLevel)
+            WHERE (cast(:externalUserId as string) IS NULL OR t.externalUserId = :externalUserId)
+              AND (cast(:country as string) IS NULL OR t.country = :country)
+              AND (cast(:from as timestamp) IS NULL OR t.timestamp >= :from)
+              AND (cast(:to as timestamp) IS NULL OR t.timestamp <= :to)
+              AND (cast(:minAmount as BigDecimal) IS NULL OR t.amount >= :minAmount)
+              AND (cast(:maxAmount as BigDecimal) IS NULL OR t.amount <= :maxAmount)
+              AND (cast(:riskLevel as string) IS NULL OR fa.riskLevel = :riskLevel)
+            """,
+            countQuery = """
+            SELECT COUNT(t) FROM Transaction t
+            LEFT JOIN t.fraudAnalysis fa
+            WHERE (cast(:externalUserId as string) IS NULL OR t.externalUserId = :externalUserId)
+              AND (cast(:country as string) IS NULL OR t.country = :country)
+              AND (cast(:from as timestamp) IS NULL OR t.timestamp >= :from)
+              AND (cast(:to as timestamp) IS NULL OR t.timestamp <= :to)
+              AND (cast(:minAmount as BigDecimal) IS NULL OR t.amount >= :minAmount)
+              AND (cast(:maxAmount as BigDecimal) IS NULL OR t.amount <= :maxAmount)
+              AND (cast(:riskLevel as string) IS NULL OR fa.riskLevel = :riskLevel)
             """)
+    @EntityGraph(attributePaths = {"fraudAnalysis"})
     Page<Transaction> findWithFilters(
             @Param("externalUserId") String externalUserId,
             @Param("country") String country,
@@ -43,6 +59,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
             @Param("riskLevel") com.frauddetection.domain.enums.RiskLevel riskLevel,
             Pageable pageable
     );
+
 
     /**
      * Count transactions within a time period (for dashboard statistics).

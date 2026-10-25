@@ -1,9 +1,10 @@
 {
-  "version": "1.0.0",
-  "critical": 0.85,
-  "high": 0.65,
-  "medium": 0.40,
-  "last_tuned": "2026-08-22",
-  "validation_pr_auc": null,
-  "notes": "Thresholds iniciales. Ajustar tras threshold tuning en Validation set."
+  "version": "3.1.1",
+  "critical": 0.50,
+  "high": 0.25,
+  "medium": 0.05,
+  "anomaly_alert_threshold": 0.70,
+  "last_tuned": "2026-10-22T00:00:00+00:00",
+  "validation_pr_auc": 0.8112,
+  "notes": "Umbrales operativos sobre risk_score = fraud_probability (pesos 1.00/0.00/0.00). Arquitectura híbrida v3.1.1: anomaly_score es señal separada de escalada (anomaly_alert), no se suma a risk_score. anomaly_alert_threshold=0.70. Umbrales de riesgo seleccionados sobre Validacion: medium=0.05 (por encima del p95 de legítimos=0.0460), high=0.25 (entre p95 de legítimos y p25 de fraudes=0.3114), critical=0.50 (probabilidad >= 50% de fraude). No se derivan de porcentajes fijos del umbral crítico. Costes: FP=5, FN=150."
 }
