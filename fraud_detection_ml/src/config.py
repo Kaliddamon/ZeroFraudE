@@ -91,6 +91,7 @@ class ThresholdsConfig:
     critical: float
     high: float
     medium: float
+    anomaly_alert_threshold: float
     last_tuned: str
     validation_pr_auc: float | None
     notes: str = ""
@@ -107,6 +108,7 @@ class RiskFusionWeights:
 class RiskFusionConfig:
     weights: RiskFusionWeights
     cold_start_weights: RiskFusionWeights
+    anomaly_alert_threshold: float
 
 
 @dataclass
@@ -165,6 +167,7 @@ def load_config(
     risk_fusion_cfg = RiskFusionConfig(
         weights=RiskFusionWeights(**raw_risk_fusion["weights"]),
         cold_start_weights=RiskFusionWeights(**raw_risk_fusion["cold_start_weights"]),
+        anomaly_alert_threshold=raw_risk_fusion["anomaly_alert_threshold"],
     )
 
     return PipelineConfig(

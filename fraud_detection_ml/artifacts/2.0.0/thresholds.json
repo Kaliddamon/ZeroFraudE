@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "critical": 0.60,
+  "high": 0.45,
+  "medium": 0.28,
+  "last_tuned": "2026-10-20T01:47:51.039693+00:00",
+  "validation_pr_auc": 0.9437,
+  "notes": "Umbrales sobre risk_score (fusión de señales), establecidos a partir del percentil empírico en Test Set: medium=P75 legítimas, high=P90 legítimas, critical=P25 fraudes. Proporciona bandas LOW/MEDIUM/HIGH/CRITICAL significativas para la demo."
+}

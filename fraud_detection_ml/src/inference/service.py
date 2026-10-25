@@ -208,8 +208,16 @@ class FraudDetectionService:
         fraud_probability = float(self._fraud_model.predict_proba(X)[0])
 
         # ── 6. Anomaly score (Isolation Forest) ────────────────────────────
+        # Isolation Forest fue entrenado con un subconjunto de features:
+        # MODEL_FEATURES sin target-encoded (country_encoded, merchant_target_enc,
+        # device_target_enc) y con behavioral_deviation añadido.
         if self._anomaly_detector is not None:
-            anomaly_score = float(self._anomaly_detector.score_single(X))
+            target_encoded = {"country_encoded", "merchant_target_enc", "device_target_enc"}
+            iforest_features = [c for c in self._fraud_model.feature_names or MODEL_FEATURES
+                                if c not in target_encoded and c in X.columns]
+            X_if = X[iforest_features].copy()
+            X_if["behavioral_deviation"] = behavioral_deviation
+            anomaly_score = float(self._anomaly_detector.score_single(X_if))
         else:
             anomaly_score = 0.0
 
@@ -222,6 +230,7 @@ class FraudDetectionService:
         )
         risk_score: float = risk_result["risk_score"]
         risk_level: str = risk_result["risk_level"]
+        anomaly_alert: bool = risk_result["anomaly_alert"]
 
         # ── 8. Explainability ──────────────────────────────────────────────
         explanations = []
@@ -229,7 +238,9 @@ class FraudDetectionService:
             feature_values_for_templates = {
                 "amount": transaction.amount,
                 "amount_z_score": behavioral_result.get("amount_z_score", 0.0),
+                "amount_ratio_to_avg": behavioral_result.get("amount_ratio_to_avg", 1.0),
                 "user_avg_amount_30d": behavioral_result.get("user_avg_amount_30d", 0.0),
+                "is_cold_start": is_cold_start,
                 **velocity_features,
             }
             try:
@@ -244,7 +255,7 @@ class FraudDetectionService:
 
         if not explanations:
             explanations = self._generate_fallback_explanations(
-                transaction, behavioral_result, velocity_features, risk_level
+                transaction, behavioral_result, velocity_features, risk_level, is_cold_start
             )
 
         # ── 9. Actualizar perfil ────────────────────────────────────────────
@@ -263,6 +274,7 @@ class FraudDetectionService:
             transaction_id=transaction.transaction_id,
             fraud_probability=round(fraud_probability, 4),
             anomaly_score=round(anomaly_score, 4),
+            anomaly_alert=anomaly_alert,
             behavioral_deviation=round(behavioral_deviation, 4),
             risk_score=risk_score,
             risk_level=risk_level,
@@ -277,21 +289,32 @@ class FraudDetectionService:
         behavioral: dict,
         velocity: dict,
         risk_level: str,
+        is_cold_start: bool = False,
     ) -> list:
-        """Genera explicaciones de fallback básicas sin SHAP."""
+        """Genera explicaciones de fallback básicas sin SHAP.
+
+        En cold start no hay historial individual del usuario, por lo que no
+        se emiten explicaciones de importe basadas en un "promedio de usuario"
+        inexistente, ni se afirma que un dispositivo/país/merchant sea "nuevo"
+        sin evidencia real.
+        """
         explanations = []
 
-        if behavioral.get("is_new_device", 0) == 1:
+        if behavioral.get("is_new_device", 0) == 1 and not is_cold_start:
             explanations.append("First transaction from this device")
-        if behavioral.get("is_new_country", 0) == 1:
+        if behavioral.get("is_new_country", 0) == 1 and not is_cold_start:
             explanations.append(f"Country {transaction.country} not in user's recent history")
-        if abs(behavioral.get("amount_z_score", 0)) > 2:
+        if (
+            abs(behavioral.get("amount_z_score", 0)) > 2
+            and not is_cold_start
+            and behavioral.get("amount_ratio_to_avg", 1.0) > 1.0
+        ):
             ratio = behavioral.get("amount_ratio_to_avg", 1.0)
             explanations.append(f"Amount {ratio:.1f}× above user average")
         if velocity.get("tx_count_5min", 0) >= 3:
             n = int(velocity["tx_count_5min"])
             explanations.append(f"{n} transactions in the last 5 minutes")
-        if behavioral.get("is_new_merchant", 0) == 1:
+        if behavioral.get("is_new_merchant", 0) == 1 and not is_cold_start:
             explanations.append("Merchant not in user's transaction history")
 
         if not explanations:

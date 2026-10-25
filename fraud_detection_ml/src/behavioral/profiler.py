@@ -82,6 +82,7 @@ class BehavioralProfiler:
             "amount_z_score", "amount_ratio_to_avg",
             "is_new_device", "is_new_country", "is_new_merchant",
             "user_tx_count_30d", "days_since_last_tx",
+            "behavioral_deviation",
         ]
 
         n = len(df)
@@ -98,6 +99,9 @@ class BehavioralProfiler:
 
         # Acumular datos de todos los usuarios para el perfil global
         all_amounts = []
+        legit_countries = []
+        legit_devices = []
+        legit_merchants = []
 
         for i in range(n):
             user_id = user_ids[i]
@@ -140,6 +144,10 @@ class BehavioralProfiler:
                     device_id=device_id,
                     merchant_id=merchant_id,
                 )
+                # Acumular entidades globales de solo transacciones legítimas
+                legit_countries.append(country)
+                legit_devices.append(device_id)
+                legit_merchants.append(merchant_id)
 
             all_amounts.append(amount)
 
@@ -148,17 +156,37 @@ class BehavioralProfiler:
             df[col] = results[:, idx]
 
         # Construir perfil global como estadística de todos los usuarios
-        self._build_global_profile(all_amounts)
+        self._build_global_profile(all_amounts, legit_countries, legit_devices, legit_merchants)
 
         return df
 
-    def _build_global_profile(self, all_amounts: list) -> None:
-        """Construye un perfil global promedio para cold start."""
+    def _build_global_profile(
+        self,
+        all_amounts: list,
+        legit_countries: list,
+        legit_devices: list,
+        legit_merchants: list,
+    ) -> None:
+        """Construye un perfil global promedio para cold start.
+
+        El perfil global agrega estadísticas de monto y el conjunto de
+        entidades (países, dispositivos, comercios) vistas en transacciones
+        legítimas. Esto permite que, en inferencia, un usuario en cold start
+        se evalúe contra entidades globales conocidas en lugar de frente a
+        un perfil vacío que marcaría todo como "nuevo".
+        """
         self._global_profile = UserProfile(user_id="__global__")
         if all_amounts:
             self._global_profile.amount_ema = float(np.mean(all_amounts))
             self._global_profile.amount_variance_ema = float(np.var(all_amounts))
             self._global_profile.tx_count = len(all_amounts)
+            # Poblar entidades conocidas a partir de transacciones legítimas
+            if legit_countries:
+                self._global_profile.known_countries.update(legit_countries)
+            if legit_devices:
+                self._global_profile.known_devices.update(legit_devices)
+            if legit_merchants:
+                self._global_profile.known_merchants.update(legit_merchants)
 
     # ── Inferencia ───────────────────────────────────────────────────────────
 
@@ -210,6 +238,17 @@ class BehavioralProfiler:
             merchant_id=merchant_id,
             cold_start_min_tx=self.COLD_START_MIN_TX,
         )
+        # Cuando el usuario original está en cold start, no hay evidencia
+        # de que su dispositivo, país o merchant sean "nuevos": el perfil
+        # global no conoce ninguno. Forzar a 0.0 para no afirmar
+        # inexistencia sin evidencia.
+        if is_cold_start:
+            features["is_new_device"] = 0.0
+            features["is_new_country"] = 0.0
+            features["is_new_merchant"] = 0.0
+            # No hay historial real del usuario, por lo que no existe
+            # desviación comportamental medible: forzar a 0.0.
+            features["behavioral_deviation"] = 0.0
         features["is_cold_start"] = is_cold_start
         return features
 

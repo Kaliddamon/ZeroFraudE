@@ -1,0 +1,20 @@
+{
+  "pr_auc": 0.8060671482804155,
+  "roc_auc": 0.9216409802958041,
+  "f1": 0.46089965397923877,
+  "precision": 0.31326434619002824,
+  "recall": 0.8717277486910995,
+  "true_positives": 333,
+  "false_positives": 730,
+  "true_negatives": 6547,
+  "false_negatives": 49,
+  "false_positive_rate": 0.10031606431221657,
+  "false_negative_rate": 0.12827225130890052,
+  "total_cost": 11000.0,
+  "cost_fp": 5.0,
+  "cost_fn": 150.0,
+  "threshold_used": 0.1474,
+  "n_samples": 7659,
+  "n_fraud": 382,
+  "fraud_rate": 0.04987596291944118
+}

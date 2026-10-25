@@ -96,9 +96,18 @@ def compute_behavioral_features(
     amount_ratio_to_avg = amount / (avg + _EPS)
 
     # ── Flags binarios ────────────────────────────────────────────────────────
-    is_new_device = float(device_id not in profile.known_devices and not is_cold)
-    is_new_country = float(country not in profile.known_countries and not is_cold)
-    is_new_merchant = float(merchant_id not in profile.known_merchants and not is_cold)
+    # Cuando el usuario está en cold start y se usa el perfil global,
+    # no hay evidencia de que el dispositivo, país o merchant sean "nuevos":
+    # el perfil global no conoce ninguno. Forzar a 0.0 para no afirmar
+    # inexistencia sin evidencia.
+    if is_cold:
+        is_new_device = 0.0
+        is_new_country = 0.0
+        is_new_merchant = 0.0
+    else:
+        is_new_device = float(device_id not in profile.known_devices)
+        is_new_country = float(country not in profile.known_countries)
+        is_new_merchant = float(merchant_id not in profile.known_merchants)
 
     # ── Hora inusual ──────────────────────────────────────────────────────────
     hour = timestamp.hour

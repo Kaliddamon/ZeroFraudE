@@ -176,7 +176,7 @@ async def lifespan(app: FastAPI):
     """Carga los artefactos al iniciar el servicio."""
     global _service
     try:
-        _service = FraudDetectionService.load(version="1.1.0")
+        _service = FraudDetectionService.load(version="3.0.0")
         print("[App] Service loaded successfully.")
     except Exception as e:
         print(f"[App] WARNING: Could not load model artifacts: {e}")
