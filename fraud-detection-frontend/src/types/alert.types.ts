@@ -36,6 +36,22 @@ export interface ReviewAlertRequest {
   notes?: string;
 }
 
+export interface CreateAlertRequest {
+  transactionId: string;
+  severity: 'HIGH' | 'CRITICAL';
+  description: string;
+}
+
+export interface CreateAlertResponse {
+  alertId: string;
+  transactionId: string;
+  severity: AlertSeverity;
+  description: string;
+  status: AlertStatus;
+  createdAt: string;
+  riskScore: number;
+}
+
 // ── Dashboard Statistics ──────────────────────────────────────────────────────
 
 export interface DashboardStatistics {

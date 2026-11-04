@@ -40,4 +40,17 @@ public interface AlertRepository extends JpaRepository<Alert, UUID> {
      * Count open alerts (for dashboard KPI).
      */
     long countByStatus(AlertStatus status);
+
+    /**
+     * Check if an alert exists for a given transaction and status (e.g., OPEN).
+     */
+    @Query("""
+            SELECT COUNT(a) > 0 FROM Alert a
+            WHERE a.fraudAnalysis.transaction.id = :transactionId
+              AND a.status = :status
+            """)
+    boolean existsByTransactionIdAndStatus(
+            @Param("transactionId") UUID transactionId,
+            @Param("status") AlertStatus status
+    );
 }

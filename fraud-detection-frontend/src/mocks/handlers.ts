@@ -4,7 +4,7 @@ import type {
   TransactionDetail,
   TransactionCreateResponse,
 } from '@/types/transaction.types';
-import type { Alert, AlertDetail, DashboardStatistics, UserBehavior } from '@/types/alert.types';
+import type { Alert, AlertDetail, DashboardStatistics, UserBehavior, CreateAlertRequest } from '@/types/alert.types';
 import type { AuthResponse, PagedResponse } from '@/types/api.types';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -185,6 +185,44 @@ export const handlers = [
       reviewedAt: new Date().toISOString(),
       reviewedBy: 'analyst@frauddetect.io',
     });
+  }),
+
+  // POST /alerts (creación manual de alerta)
+  http.post(`${BASE}/alerts`, async ({ request }) => {
+    await fakeDelay();
+    const body = (await request.json()) as Partial<CreateAlertRequest>;
+    if (!body?.transactionId || !body?.severity) {
+      return HttpResponse.json(
+        { title: 'Bad Request', detail: 'transactionId and severity are required' },
+        { status: 400 }
+      );
+    }
+    if (!['HIGH', 'CRITICAL'].includes(body.severity)) {
+      return HttpResponse.json(
+        { title: 'Bad Request', detail: 'severity must be HIGH or CRITICAL' },
+        { status: 400 }
+      );
+    }
+    const hasOpenAlert = mockAlerts.some(
+      (a) => a.transactionId === body.transactionId && a.status === 'OPEN'
+    );
+    if (hasOpenAlert) {
+      return HttpResponse.json(
+        { title: 'Conflict', detail: `An open alert already exists for transaction: ${body.transactionId}` },
+        { status: 409 }
+      );
+    }
+    const newAlert: Alert = {
+      alertId: `ALT-${Date.now()}`,
+      transactionId: body.transactionId,
+      severity: body.severity as 'HIGH' | 'CRITICAL',
+      description: body.description ?? 'Manual alert created by analyst',
+      status: 'OPEN',
+      createdAt: new Date().toISOString(),
+      riskScore: 0.85,
+    };
+    mockAlerts.push(newAlert);
+    return HttpResponse.json(newAlert, { status: 201 });
   }),
 
   // GET /statistics/dashboard

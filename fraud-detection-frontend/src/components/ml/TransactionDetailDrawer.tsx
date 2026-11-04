@@ -21,10 +21,10 @@ import { RiskBadge } from '@/components/ui/RiskBadge';
 import { ScoreGauge } from './ScoreGauge';
 import { ExplainabilityPanel } from './ExplainabilityPanel';
 import { fetchTransactionDetail } from '@/services/api/transactions.service';
-import { fetchAlerts, reviewAlert } from '@/services/api/alerts.service';
+import { fetchAlerts, reviewAlert, createAlert } from '@/services/api/alerts.service';
 import { AppError } from '@/services/api/apiClient';
 import type { TransactionSummary, TransactionDetail } from '@/types/transaction.types';
-import type { Alert } from '@/types/alert.types';
+import type { Alert, CreateAlertRequest } from '@/types/alert.types';
 
 interface TransactionDetailDrawerProps {
   transaction: TransactionSummary | null;
@@ -43,6 +43,11 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
   const [reviewNotes, setReviewNotes] = useState('');
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // Estados locales para creación manual de alerta (POST /api/v1/alerts)
+  const [isManualAlertOpen, setIsManualAlertOpen] = useState(false);
+  const [manualSeverity, setManualSeverity] = useState<'HIGH' | 'CRITICAL'>('HIGH');
+  const [manualDescription, setManualDescription] = useState('');
 
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
     setToast({ type, message });
@@ -97,6 +102,25 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
     },
   });
 
+  // 4. Mutación para creación manual de alerta (POST /api/v1/alerts)
+  const createAlertMutation = useMutation({
+    mutationFn: async (data: CreateAlertRequest) => {
+      return createAlert(data);
+    },
+    onSuccess: (data) => {
+      showToast('success', `Alerta ${data.alertId} creada exitosamente con severidad ${data.severity}.`);
+      setIsManualAlertOpen(false);
+      setManualDescription('');
+      queryClient.invalidateQueries({ queryKey: ['alerts-by-tx', transaction?.transactionId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Error al crear la alerta manual.';
+      showToast('error', msg);
+    },
+  });
+
   if (!transaction) return null;
 
   // Manejo de error 404 explícito
@@ -143,12 +167,17 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
     });
   };
 
-  // Manejador para acción de crear alerta manual (dependencia BE-07)
-  const handleCreateManualAlert = () => {
-    showToast(
-      'info',
-      'La creación manual de alertas requiere la implementación del endpoint POST /api/v1/alerts en el backend (dependencia BE-07).'
-    );
+  const handleConfirmCreateAlert = () => {
+    if (!transaction) return;
+    if (!manualDescription.trim()) {
+      showToast('error', 'La descripción de la alerta no puede estar vacía.');
+      return;
+    }
+    createAlertMutation.mutate({
+      transactionId: transaction.transactionId,
+      severity: manualSeverity,
+      description: manualDescription.trim(),
+    });
   };
 
   return (
@@ -563,6 +592,109 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
               </div>
             </div>
           )}
+
+          {/* Modal / Panel Contextual de Creación Manual de Alerta */}
+          {isManualAlertOpen && (
+            <div className="mt-4 p-4 rounded-xl bg-[#14171A] border border-amber-500/30 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-xs font-mono font-bold text-amber-300">
+                    Crear Alerta Manual de Fraude
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsManualAlertOpen(false)}
+                  className="text-[#8A929B] hover:text-white text-xs font-mono"
+                  aria-label="Cerrar formulario de alerta"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Selector de Severidad */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono text-[#8A929B] block">
+                  Nivel de Severidad:
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setManualSeverity('HIGH')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono font-bold border transition-colors ${
+                      manualSeverity === 'HIGH'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                        : 'bg-[#1F2328] text-[#8A929B] border-[#30363D] hover:bg-[#282E35]'
+                    }`}
+                  >
+                    HIGH
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManualSeverity('CRITICAL')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono font-bold border transition-colors ${
+                      manualSeverity === 'CRITICAL'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-sm'
+                        : 'bg-[#1F2328] text-[#8A929B] border-[#30363D] hover:bg-[#282E35]'
+                    }`}
+                  >
+                    CRITICAL
+                  </button>
+                </div>
+              </div>
+
+              {/* Textarea de Descripción */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label
+                    htmlFor="manual-alert-desc"
+                    className="text-[11px] font-mono text-[#8A929B] block"
+                  >
+                    Motivo o justificación de la alerta (obligatorio):
+                  </label>
+                  <span className="text-[10px] font-mono text-[#8A929B]">
+                    {manualDescription.length}/1000
+                  </span>
+                </div>
+                <textarea
+                  id="manual-alert-desc"
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  maxLength={1000}
+                  placeholder="Detalla el patrón o anomalía observada por el analista..."
+                  className="w-full h-20 p-2.5 bg-[#0F1113] border border-[#2B313A] rounded-lg text-xs font-mono text-[#F3F4F6] placeholder-[#808893] focus:border-amber-500 focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsManualAlertOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-[#1F2328] hover:bg-[#282E35] text-[#D1D5DB] text-xs font-mono transition-colors border border-[#30363D]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCreateAlert}
+                  disabled={createAlertMutation.isPending || !manualDescription.trim()}
+                  className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  {createAlertMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Creando…
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-3.5 h-3.5" /> Confirmar Alerta
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Drawer Actions (Footer) ──────────────────────────────────────── */}
@@ -570,12 +702,23 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
           <div className="flex gap-2">
             {/* Acción A: Crear Alerta Manual */}
             <button
-              onClick={handleCreateManualAlert}
-              className="px-3 py-2 rounded-lg bg-[#1B1E22] hover:bg-[#252A30] text-[#D1D5DB] hover:text-white text-xs font-mono font-medium flex items-center gap-1.5 transition-colors border border-[#30363D]"
-              title="Crear alerta manual (dependencia backend BE-07)"
+              onClick={() => {
+                if (associatedAlert?.status === 'OPEN') {
+                  showToast('info', 'Ya existe una alerta activa para esta transacción.');
+                  return;
+                }
+                setIsManualAlertOpen((prev) => !prev);
+              }}
+              disabled={associatedAlert?.status === 'OPEN' || createAlertMutation.isPending}
+              className={`px-3 py-2 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 transition-colors border ${
+                associatedAlert?.status === 'OPEN'
+                  ? 'bg-amber-500/10 text-amber-400/70 border-amber-500/30 cursor-not-allowed opacity-60'
+                  : 'bg-[#1B1E22] hover:bg-[#252A30] text-[#D1D5DB] hover:text-white border-[#30363D]'
+              }`}
+              title={associatedAlert?.status === 'OPEN' ? 'Ya existe una alerta activa para esta transacción' : 'Crear alerta manual'}
             >
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              Crear Alerta Manual
+              {associatedAlert?.status === 'OPEN' ? 'Alerta Abierta Existente' : 'Crear Alerta Manual'}
             </button>
           </div>
 

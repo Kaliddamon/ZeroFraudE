@@ -8,13 +8,19 @@ import com.frauddetection.dto.response.AlertDetailResponse;
 import com.frauddetection.dto.response.AlertResponse;
 import com.frauddetection.dto.response.AlertReviewResponse;
 import com.frauddetection.dto.response.PagedResponse;
+import com.frauddetection.domain.Transaction;
+import com.frauddetection.dto.request.CreateAlertRequest;
 import com.frauddetection.exception.BusinessRuleException;
+import com.frauddetection.exception.DuplicateResourceException;
 import com.frauddetection.exception.ResourceNotFoundException;
 import com.frauddetection.mapper.AlertMapper;
 import com.frauddetection.repository.AlertRepository;
+import com.frauddetection.repository.FraudAnalysisRepository;
+import com.frauddetection.repository.TransactionRepository;
 import com.frauddetection.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,10 +41,22 @@ public class AlertService {
 
     private final AlertRepository alertRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
+    private final FraudAnalysisRepository fraudAnalysisRepository;
 
-    public AlertService(AlertRepository alertRepository, UserRepository userRepository) {
+    @Autowired
+    public AlertService(AlertRepository alertRepository,
+                        UserRepository userRepository,
+                        TransactionRepository transactionRepository,
+                        FraudAnalysisRepository fraudAnalysisRepository) {
         this.alertRepository = alertRepository;
         this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
+        this.fraudAnalysisRepository = fraudAnalysisRepository;
+    }
+
+    public AlertService(AlertRepository alertRepository, UserRepository userRepository) {
+        this(alertRepository, userRepository, null, null);
     }
 
     /**
@@ -123,5 +141,53 @@ public class AlertService {
                 .reviewedAt(alert.getReviewedAt())
                 .reviewedBy(reviewerEmail)
                 .build();
+    }
+
+    /**
+     * Manually creates an alert for a transaction by an analyst.
+     * Per BE-07 / FE-06:
+     * - Requires existing transaction and its fraud analysis.
+     * - Prevents duplicate open alerts for the same transaction (409 Conflict).
+     * - Severity must be HIGH or CRITICAL.
+     * - Stores createdByUserId for audit trail.
+     */
+    @Transactional
+    public AlertResponse createManualAlert(CreateAlertRequest request, UUID creatorUserId) {
+        UUID transactionId = request.getTransactionId();
+
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", transactionId.toString()));
+
+        FraudAnalysis analysis = transaction.getFraudAnalysis();
+        if (analysis == null) {
+            analysis = fraudAnalysisRepository.findByTransactionId(transactionId)
+                    .orElseThrow(() -> new BusinessRuleException(
+                            "Cannot create alert: Transaction " + transactionId + " does not have a completed fraud analysis"));
+        }
+
+        if (alertRepository.existsByTransactionIdAndStatus(transactionId, AlertStatus.OPEN)) {
+            throw new DuplicateResourceException("An open Alert already exists for transaction: " + transactionId);
+        }
+
+        String severity = request.getSeverity().toUpperCase();
+        if (!"HIGH".equals(severity) && !"CRITICAL".equals(severity)) {
+            throw new BusinessRuleException("Severity must be either HIGH or CRITICAL");
+        }
+
+        String description = request.getDescription().trim();
+        Alert alert = Alert.builder()
+                .fraudAnalysis(analysis)
+                .severity(severity)
+                .description("[MANUAL] " + description)
+                .status(AlertStatus.OPEN)
+                .createdByUserId(creatorUserId)
+                .build();
+
+        alert = alertRepository.save(alert);
+
+        log.info("Manual alert {} created for transaction {} by user {} (severity={})",
+                alert.getId(), transactionId, creatorUserId, severity);
+
+        return AlertMapper.toResponse(alert);
     }
 }

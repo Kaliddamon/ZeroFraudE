@@ -10,9 +10,13 @@ import com.frauddetection.dto.response.AlertDetailResponse;
 import com.frauddetection.dto.response.AlertResponse;
 import com.frauddetection.dto.response.AlertReviewResponse;
 import com.frauddetection.dto.response.PagedResponse;
+import com.frauddetection.dto.request.CreateAlertRequest;
 import com.frauddetection.exception.BusinessRuleException;
+import com.frauddetection.exception.DuplicateResourceException;
 import com.frauddetection.exception.ResourceNotFoundException;
 import com.frauddetection.repository.AlertRepository;
+import com.frauddetection.repository.FraudAnalysisRepository;
+import com.frauddetection.repository.TransactionRepository;
 import com.frauddetection.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,13 +43,17 @@ class AlertServiceTest {
 
     private AlertRepository alertRepository;
     private UserRepository userRepository;
+    private TransactionRepository transactionRepository;
+    private FraudAnalysisRepository fraudAnalysisRepository;
     private AlertService alertService;
 
     @BeforeEach
     void setUp() {
         alertRepository = mock(AlertRepository.class);
         userRepository = mock(UserRepository.class);
-        alertService = new AlertService(alertRepository, userRepository);
+        transactionRepository = mock(TransactionRepository.class);
+        fraudAnalysisRepository = mock(FraudAnalysisRepository.class);
+        alertService = new AlertService(alertRepository, userRepository, transactionRepository, fraudAnalysisRepository);
     }
 
     @Test
@@ -227,5 +235,156 @@ class AlertServiceTest {
         assertThatThrownBy(() -> alertService.reviewAlert(alertId, "notes", reviewerId))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("already been reviewed");
+    }
+
+    // ── Manual Alert Creation (POST /api/v1/alerts) ───────────────────────────
+
+    @Test
+    void createManualAlert_shouldCreateAlert_whenValidHighSeverity() {
+        UUID txId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        Transaction tx = Transaction.builder().id(txId).build();
+        FraudAnalysis analysis = FraudAnalysis.builder()
+                .id(UUID.randomUUID())
+                .transaction(tx)
+                .riskScore(new BigDecimal("0.35"))
+                .build();
+        tx.setFraudAnalysis(analysis);
+
+        when(transactionRepository.findById(txId)).thenReturn(Optional.of(tx));
+        when(alertRepository.existsByTransactionIdAndStatus(txId, AlertStatus.OPEN)).thenReturn(false);
+        when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> {
+            Alert a = invocation.getArgument(0);
+            a.setId(UUID.randomUUID());
+            a.setCreatedAt(Instant.now());
+            return a;
+        });
+
+        CreateAlertRequest request = CreateAlertRequest.builder()
+                .transactionId(txId)
+                .severity("HIGH")
+                .description("Suspicious rapid transaction sequence")
+                .build();
+
+        var response = alertService.createManualAlert(request, creatorId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getSeverity()).isEqualTo("HIGH");
+        assertThat(response.getStatus()).isEqualTo("OPEN");
+        assertThat(response.getDescription()).isEqualTo("[MANUAL] Suspicious rapid transaction sequence");
+        verify(alertRepository).save(argThat(a ->
+                a.getSeverity().equals("HIGH") &&
+                a.getStatus() == AlertStatus.OPEN &&
+                creatorId.equals(a.getCreatedByUserId())
+        ));
+    }
+
+    @Test
+    void createManualAlert_shouldCreateAlert_whenValidCriticalSeverity() {
+        UUID txId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        Transaction tx = Transaction.builder().id(txId).build();
+        FraudAnalysis analysis = FraudAnalysis.builder()
+                .id(UUID.randomUUID())
+                .transaction(tx)
+                .riskScore(new BigDecimal("0.85"))
+                .build();
+        tx.setFraudAnalysis(analysis);
+
+        when(transactionRepository.findById(txId)).thenReturn(Optional.of(tx));
+        when(alertRepository.existsByTransactionIdAndStatus(txId, AlertStatus.OPEN)).thenReturn(false);
+        when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> {
+            Alert a = invocation.getArgument(0);
+            a.setId(UUID.randomUUID());
+            a.setCreatedAt(Instant.now());
+            return a;
+        });
+
+        CreateAlertRequest request = CreateAlertRequest.builder()
+                .transactionId(txId)
+                .severity("CRITICAL")
+                .description("Carding pattern identified")
+                .build();
+
+        var response = alertService.createManualAlert(request, creatorId);
+
+        assertThat(response.getSeverity()).isEqualTo("CRITICAL");
+        assertThat(response.getStatus()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void createManualAlert_shouldThrowResourceNotFound_whenTransactionDoesNotExist() {
+        UUID txId = UUID.randomUUID();
+        when(transactionRepository.findById(txId)).thenReturn(Optional.empty());
+
+        CreateAlertRequest request = CreateAlertRequest.builder()
+                .transactionId(txId)
+                .severity("HIGH")
+                .description("Test")
+                .build();
+
+        assertThatThrownBy(() -> alertService.createManualAlert(request, UUID.randomUUID()))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Transaction");
+    }
+
+    @Test
+    void createManualAlert_shouldThrowBusinessRuleException_whenAnalysisDoesNotExist() {
+        UUID txId = UUID.randomUUID();
+        Transaction tx = Transaction.builder().id(txId).build(); // no fraud analysis
+        when(transactionRepository.findById(txId)).thenReturn(Optional.of(tx));
+        when(fraudAnalysisRepository.findByTransactionId(txId)).thenReturn(Optional.empty());
+
+        CreateAlertRequest request = CreateAlertRequest.builder()
+                .transactionId(txId)
+                .severity("HIGH")
+                .description("Test")
+                .build();
+
+        assertThatThrownBy(() -> alertService.createManualAlert(request, UUID.randomUUID()))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("does not have a completed fraud analysis");
+    }
+
+    @Test
+    void createManualAlert_shouldThrowDuplicateResource_whenOpenAlertAlreadyExists() {
+        UUID txId = UUID.randomUUID();
+        Transaction tx = Transaction.builder().id(txId).build();
+        FraudAnalysis analysis = FraudAnalysis.builder().id(UUID.randomUUID()).transaction(tx).build();
+        tx.setFraudAnalysis(analysis);
+
+        when(transactionRepository.findById(txId)).thenReturn(Optional.of(tx));
+        when(alertRepository.existsByTransactionIdAndStatus(txId, AlertStatus.OPEN)).thenReturn(true);
+
+        CreateAlertRequest request = CreateAlertRequest.builder()
+                .transactionId(txId)
+                .severity("HIGH")
+                .description("Test")
+                .build();
+
+        assertThatThrownBy(() -> alertService.createManualAlert(request, UUID.randomUUID()))
+                .isInstanceOf(DuplicateResourceException.class)
+                .hasMessageContaining("Alert");
+    }
+
+    @Test
+    void createManualAlert_shouldThrowBusinessRuleException_whenInvalidSeverity() {
+        UUID txId = UUID.randomUUID();
+        Transaction tx = Transaction.builder().id(txId).build();
+        FraudAnalysis analysis = FraudAnalysis.builder().id(UUID.randomUUID()).transaction(tx).build();
+        tx.setFraudAnalysis(analysis);
+
+        when(transactionRepository.findById(txId)).thenReturn(Optional.of(tx));
+        when(alertRepository.existsByTransactionIdAndStatus(txId, AlertStatus.OPEN)).thenReturn(false);
+
+        CreateAlertRequest request = CreateAlertRequest.builder()
+                .transactionId(txId)
+                .severity("LOW")
+                .description("Invalid severity test")
+                .build();
+
+        assertThatThrownBy(() -> alertService.createManualAlert(request, UUID.randomUUID()))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("Severity must be either HIGH or CRITICAL");
     }
 }

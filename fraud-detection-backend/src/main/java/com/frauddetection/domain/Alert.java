@@ -52,6 +52,9 @@ public class Alert {
     @Column(name = "reviewed_by_user_id")
     private UUID reviewedByUserId;
 
+    @Column(name = "created_by_user_id")
+    private UUID createdByUserId;
+
     @PrePersist
     public void prePersist() {
         if (id == null) {

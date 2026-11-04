@@ -218,6 +218,25 @@ components:
         analysis:
           $ref: '#/components/schemas/FraudAnalysisResponse'
 
+    CreateAlertRequest:
+      type: object
+      required:
+        - transactionId
+        - severity
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        severity:
+          type: string
+          enum: [HIGH, CRITICAL]
+          example: HIGH
+        description:
+          type: string
+          maxLength: 1000
+          example: Transacción sospechosa identificada manualmente por analista
+
     ReviewAlertRequest:
       type: object
       properties:
@@ -437,6 +456,35 @@ paths:
       responses:
         '200':
           description: Paged list of alerts
+    post:
+      tags: [Alerts]
+      summary: Manually create a new fraud alert for an analyzed transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertRequest'
+      responses:
+        '201':
+          description: Alert created successfully
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI of the created alert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+        '400':
+          description: Validation error or invalid severity level
+        '401':
+          description: Unauthorized
+        '404':
+          description: Transaction not found or analysis not yet completed
+        '409':
+          description: An open alert already exists for this transaction
 
   /alerts/{id}:
     get:

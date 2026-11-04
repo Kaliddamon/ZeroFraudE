@@ -274,17 +274,99 @@ describe('TransactionDetailDrawer', () => {
     expect(screen.getByRole('button', { name: /volver al explorador/i })).toBeInTheDocument();
   });
 
-  it('informa que crear alerta manual depende del backend BE-07', async () => {
-    renderDrawer();
+  it('permite crear una alerta manual con severidad, descripción y confirmación Toast', async () => {
+    const txWithoutAlert: TransactionSummary = {
+      transactionId: 'TX0000003',
+      externalUserId: 'U00203',
+      amount: 320.0,
+      timestamp: '2023-10-27T11:15:00Z',
+      country: 'ES',
+      merchantId: 'M0044',
+      riskLevel: 'MEDIUM',
+      riskScore: 0.48,
+    };
+
+    renderDrawer(txWithoutAlert);
+    await waitFor(() => {
+      expect(screen.getByText('TX0000003')).toBeInTheDocument();
+      expect(screen.getByText('Información Comercial')).toBeInTheDocument();
+    });
+
     const createBtn = screen.getByRole('button', { name: /crear alerta manual/i });
     expect(createBtn).toBeInTheDocument();
+    expect(createBtn).not.toBeDisabled();
 
     fireEvent.click(createBtn);
 
+    // Debe abrirse el formulario modal contextual
+    expect(screen.getByText('Crear Alerta Manual de Fraude')).toBeInTheDocument();
+
+    // Seleccionar severidad CRITICAL
+    const criticalBtn = screen.getByRole('button', { name: 'CRITICAL' });
+    fireEvent.click(criticalBtn);
+
+    // Escribir descripción y comprobar contador de caracteres
+    const textarea = screen.getByPlaceholderText(/detalla el patrón o anomalía observada/i);
+    fireEvent.change(textarea, { target: { value: 'Transacción anómala verificada manualmente por analista.' } });
+    expect(screen.getByText('56/1000')).toBeInTheDocument();
+
+    // Enviar formulario
+    const submitBtn = screen.getByRole('button', { name: /confirmar alerta/i });
+    fireEvent.click(submitBtn);
+
+    // Debe mostrar Toast de confirmación y cerrarse el modal
     await waitFor(() => {
-      expect(
-        screen.getByText(/requiere la implementación del endpoint POST \/api\/v1\/alerts/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/creada exitosamente/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Crear Alerta Manual de Fraude')).not.toBeInTheDocument();
+  });
+
+  it('deshabilita el botón de crear alerta cuando ya existe una alerta activa', async () => {
+    renderDrawer(mockTransaction);
+    await waitFor(() => {
+      const createBtn = screen.getByRole('button', { name: /alerta abierta existente/i });
+      expect(createBtn).toBeDisabled();
+      expect(createBtn).toHaveAttribute('title', 'Ya existe una alerta activa para esta transacción');
+    });
+  });
+
+  it('muestra mensaje de error cuando falla la creación de alerta manual', async () => {
+    server.use(
+      http.post(`${BASE}/alerts`, () =>
+        HttpResponse.json(
+          { title: 'Conflict', detail: 'Ya existe una alerta abierta para esta transacción' },
+          { status: 409 }
+        )
+      )
+    );
+
+    const txWithoutAlert: TransactionSummary = {
+      transactionId: 'TX0000003',
+      externalUserId: 'U00203',
+      amount: 320.0,
+      timestamp: '2023-10-27T11:15:00Z',
+      country: 'ES',
+      merchantId: 'M0044',
+      riskLevel: 'MEDIUM',
+      riskScore: 0.48,
+    };
+
+    renderDrawer(txWithoutAlert);
+    await waitFor(() => {
+      expect(screen.getByText('TX0000003')).toBeInTheDocument();
+      expect(screen.getByText('Información Comercial')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /crear alerta manual/i }));
+    expect(screen.getByText('Crear Alerta Manual de Fraude')).toBeInTheDocument();
+
+    const textarea = screen.getByPlaceholderText(/detalla el patrón o anomalía observada/i);
+    fireEvent.change(textarea, { target: { value: 'Intento de alerta duplicada' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar alerta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/conflicto/i)).toBeInTheDocument();
     });
   });
 

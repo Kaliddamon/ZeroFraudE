@@ -1,7 +1,9 @@
 package com.frauddetection.controller;
 
 import com.frauddetection.domain.enums.AlertStatus;
+import com.frauddetection.dto.request.CreateAlertRequest;
 import com.frauddetection.dto.request.ReviewAlertRequest;
+import java.net.URI;
 import com.frauddetection.dto.response.AlertDetailResponse;
 import com.frauddetection.dto.response.AlertResponse;
 import com.frauddetection.dto.response.AlertReviewResponse;
@@ -67,5 +69,17 @@ public class AlertController {
         String notes = request != null ? request.getNotes() : null;
 
         return ResponseEntity.ok(alertService.reviewAlert(id, notes, reviewerUserId));
+    }
+
+    @PostMapping
+    @Operation(summary = "Manually create an alert for a transaction")
+    public ResponseEntity<AlertResponse> create(
+            @Valid @RequestBody CreateAlertRequest request,
+            Authentication authentication) {
+
+        UUID creatorUserId = (UUID) authentication.getPrincipal();
+        AlertResponse response = alertService.createManualAlert(request, creatorUserId);
+        URI location = URI.create("/api/v1/alerts/" + response.getAlertId());
+        return ResponseEntity.created(location).body(response);
     }
 }
