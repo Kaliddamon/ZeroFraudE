@@ -1,0 +1,14 @@
+{
+  "transaction_id": "c6a6d258-f151-464e-a7a6-cbd71c979879",
+  "fraud_probability": 0.0491,
+  "anomaly_score": 0.9397,
+  "behavioral_deviation": 0.8610,
+  "risk_score": 0.3163,
+  "risk_level": "CRITICAL",
+  "explanations": [
+    "Country not in user's recent history",
+    "First transaction from this device"
+  ],
+  "model_version": "1.0.0",
+  "is_cold_start": false
+}

@@ -1,4 +1,0 @@
-com\frauddetection\config\RequestIdFilter.class
-com\frauddetection\config\OpenApiConfig.class
-com\frauddetection\FraudDetectionApplication.class
-com\frauddetection\audit\SecurityAuditorAware.class

@@ -23,6 +23,9 @@ export interface TransactionDetail {
   merchantId: string;
   currency: string;
   createdAt: string;
+  channel?: string;
+  maskedCard?: string;
+  ipAddress?: string;
   analysis: FraudAnalysis | null;
 }
 
@@ -60,6 +63,7 @@ export interface FraudAnalysis {
   transactionId: string;
   fraudProbability: number;      // 0–1
   anomalyScore: number;          // 0–1
+  anomalyAlert?: boolean;
   behavioralDeviation: number;   // 0–1
   riskScore: number;             // 0–1
   riskLevel: RiskLevel;

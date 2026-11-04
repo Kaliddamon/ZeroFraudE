@@ -1,0 +1,546 @@
+openapi: 3.0.3
+info:
+  title: ZeroFraudE Backend API
+  version: 1.1.0
+  description: >
+    Backend API for Adaptive E-commerce Fraud Detection System (ZeroFraudE).
+    Orchestrates transaction ingestion, ML inference integration, alert review workflow,
+    and analytical dashboard aggregations.
+  contact:
+    name: Fraud Detection Team
+    email: team@frauddetection.com
+
+servers:
+  - url: http://localhost:8081/api/v1
+    description: Local development backend
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from POST /auth/login
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: analyst@frauddetection.com
+        password:
+          type: string
+          example: secretPassword123
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          example: 86400
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [ANALYST, ADMIN]
+
+    CreateTransactionRequest:
+      type: object
+      required:
+        - externalUserId
+        - amount
+        - country
+        - deviceId
+        - merchantId
+      properties:
+        externalUserId:
+          type: string
+          example: U00042
+        amount:
+          type: number
+          format: double
+          example: 4850.00
+        timestamp:
+          type: string
+          format: date-time
+          example: "2023-10-27T03:14:00Z"
+        country:
+          type: string
+          example: NG
+        deviceId:
+          type: string
+          example: D_NEW_823461
+        merchantId:
+          type: string
+          example: M0172
+        currency:
+          type: string
+          example: USD
+
+    TransactionSummaryResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        externalUserId:
+          type: string
+        amount:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        country:
+          type: string
+        merchantId:
+          type: string
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        riskScore:
+          type: number
+
+    TransactionDetailResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        externalUserId:
+          type: string
+        amount:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        country:
+          type: string
+        deviceId:
+          type: string
+        merchantId:
+          type: string
+        currency:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        analysis:
+          $ref: '#/components/schemas/FraudAnalysisResponse'
+
+    FraudAnalysisResponse:
+      type: object
+      properties:
+        analysisId:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        fraudProbability:
+          type: number
+        anomalyScore:
+          type: number
+        behavioralDeviation:
+          type: number
+        riskScore:
+          type: number
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        explanations:
+          type: array
+          items:
+            type: string
+        modelVersion:
+          type: string
+        analyzedAt:
+          type: string
+          format: date-time
+        analyzedBy:
+          type: string
+
+    AlertResponse:
+      type: object
+      properties:
+        alertId:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: [HIGH, CRITICAL]
+        description:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, REVIEWED]
+        createdAt:
+          type: string
+          format: date-time
+        riskScore:
+          type: number
+
+    AlertDetailResponse:
+      type: object
+      properties:
+        alertId:
+          type: string
+          format: uuid
+        severity:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+        reviewedBy:
+          type: string
+        transaction:
+          $ref: '#/components/schemas/TransactionDetailResponse'
+        analysis:
+          $ref: '#/components/schemas/FraudAnalysisResponse'
+
+    ReviewAlertRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 1000
+
+    AlertReviewResponse:
+      type: object
+      properties:
+        alertId:
+          type: string
+        status:
+          type: string
+          example: REVIEWED
+        reviewedAt:
+          type: string
+          format: date-time
+        reviewedBy:
+          type: string
+
+    UserBehaviorResponse:
+      type: object
+      properties:
+        externalUserId:
+          type: string
+        transactionCount:
+          type: integer
+        averageAmount:
+          type: number
+        typicalHourRange:
+          type: string
+        typicalCountries:
+          type: array
+          items:
+            type: string
+        knownDevices:
+          type: array
+          items:
+            type: string
+        topMerchants:
+          type: array
+          items:
+            type: string
+        lastActivityAt:
+          type: string
+          format: date-time
+        riskSummary:
+          type: object
+          properties:
+            totalHighRisk:
+              type: integer
+            totalMediumRisk:
+              type: integer
+            fraudConfirmed:
+              type: integer
+
+    DashboardStatisticsResponse:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+        totalTransactions:
+          type: integer
+        analyzedTransactions:
+          type: integer
+        fraudDetected:
+          type: integer
+        fraudRate:
+          type: number
+        averageRiskScore:
+          type: number
+        riskDistribution:
+          type: object
+          additionalProperties:
+            type: integer
+        openAlerts:
+          type: integer
+        riskTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              high:
+                type: integer
+              medium:
+                type: integer
+              low:
+                type: integer
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate analyst and obtain JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions with pagination and optional filters
+      parameters:
+        - name: riskLevel
+          in: query
+          schema:
+            type: string
+            enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paged list of transactions
+    post:
+      tags: [Transactions]
+      summary: Ingest and analyze a new transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+      responses:
+        '201':
+          description: Transaction ingested and analyzed
+
+  /transactions/{id}:
+    get:
+      tags: [Transactions]
+      summary: Retrieve full transaction details by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction detail found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetailResponse'
+        '404':
+          description: Transaction not found
+
+  /alerts:
+    get:
+      tags: [Alerts]
+      summary: List fraud alerts with status and severity filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, REVIEWED]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [HIGH, CRITICAL]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paged list of alerts
+
+  /alerts/{id}:
+    get:
+      tags: [Alerts]
+      summary: Retrieve alert detail by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Alert detail found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertDetailResponse'
+        '404':
+          description: Alert not found
+
+  /alerts/{id}/review:
+    patch:
+      tags: [Alerts]
+      summary: Review and resolve an open fraud alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewAlertRequest'
+      responses:
+        '200':
+          description: Alert reviewed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertReviewResponse'
+        '409':
+          description: Alert already reviewed
+        '404':
+          description: Alert not found
+
+  /users/{externalUserId}/transactions:
+    get:
+      tags: [Users]
+      summary: Get transaction history for an e-commerce user
+      parameters:
+        - name: externalUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged transactions of the user
+
+  /users/{externalUserId}/behavior:
+    get:
+      tags: [Users]
+      summary: Get user behavioral profile
+      parameters:
+        - name: externalUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User behavior profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBehaviorResponse'
+        '404':
+          description: User not found
+
+  /statistics/dashboard:
+    get:
+      tags: [Statistics]
+      summary: Aggregate fraud metrics and trend for the dashboard
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStatisticsResponse'

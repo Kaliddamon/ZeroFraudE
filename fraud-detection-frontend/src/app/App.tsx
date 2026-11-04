@@ -7,10 +7,8 @@ import { MainLayout } from '@/layouts/MainLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import TransactionExplorer from '@/pages/TransactionExplorer';
-
-// Placeholders for other pages
-const AlertsPage = () => <div className="text-[var(--text-muted)]">Centro de Alertas (En construcción)</div>;
-const BehaviorPage = () => <div className="text-[var(--text-muted)]">Perfiles de Comportamiento (En construcción)</div>;
+import AlertCenter from '@/pages/AlertCenter';
+import UserProfile from '@/pages/UserProfile';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,8 +34,10 @@ export function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/transactions" element={<TransactionExplorer />} />
-            <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/behavior" element={<BehaviorPage />} />
+            <Route path="/alerts" element={<AlertCenter />} />
+            <Route path="/behavior" element={<UserProfile />} />
+            <Route path="/profile/:userId" element={<UserProfile />} />
+            <Route path="/profile" element={<UserProfile />} />
           </Route>
 
           {/* Fallback */}

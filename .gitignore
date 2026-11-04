@@ -1,0 +1,37 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDEs
+.idea/
+.vscode/
+
+# AI agents and local skills
+.kimi/
+.opencode/
+skills-candidates/
+
+# Previous local reports and research material
+INFORME_*.md
+docs/auditoria_informe.md
+paper/
+paper.zip
+
+# Java / Maven
+**/target/
+
+# Python
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+
+# Node / Vite
+**/node_modules/
+**/dist/
+
+# Temporary files
+*.log
+*.tmp
+*.swp
+*.swo

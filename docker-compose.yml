@@ -1,0 +1,77 @@
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: fraud_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fraud_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fraud_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── ML Service (Python FastAPI) ───────────────────────────────────────────────
+  ml-service:
+    build:
+      context: ./fraud_detection_ml
+      dockerfile: Dockerfile
+    container_name: fraud_ml_service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_VERSION=3.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Backend (Spring Boot) ────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./fraud-detection-backend
+      dockerfile: Dockerfile
+    container_name: fraud_backend
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_URL=jdbc:postgresql://postgres:5432/fraud_dev
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - ML_SERVICE_URL=http://ml-service:8000
+      - JWT_SECRET=${JWT_SECRET:?Debe definirse JWT_SECRET antes de iniciar los servicios}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Frontend (Vite dev server) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./fraud-detection-frontend
+      dockerfile: Dockerfile
+    container_name: fraud_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8081/api/v1
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: fraud_net
+    driver: bridge
