@@ -1,6 +1,5 @@
 services:
 
-  # ── PostgreSQL ───────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: fraud_postgres
@@ -19,7 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── ML Service (Python FastAPI) ───────────────────────────────────────────────
   ml-service:
     build:
       context: ./fraud_detection_ml
@@ -33,8 +31,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
-  # ── Backend (Spring Boot) ────────────────────────────────────────────────────
   backend:
     build:
       context: ./fraud-detection-backend
@@ -53,8 +56,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
 
-  # ── Frontend (Vite dev server) ────────────────────────────────────────────────
   frontend:
     build:
       context: ./fraud-detection-frontend
@@ -63,10 +73,9 @@ services:
     restart: unless-stopped
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8081/api/v1
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:

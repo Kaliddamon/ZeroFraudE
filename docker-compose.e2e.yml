@@ -1,0 +1,87 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: fraud_postgres_e2e
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fraud_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_e2e_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fraud_e2e"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ml-service:
+    build:
+      context: ./fraud_detection_ml
+      dockerfile: Dockerfile
+    container_name: fraud_ml_service_e2e
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_VERSION=3.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./fraud-detection-backend
+      dockerfile: Dockerfile
+    container_name: fraud_backend_e2e
+    restart: unless-stopped
+    ports:
+      - "8085:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_URL=jdbc:postgresql://postgres:5432/fraud_e2e
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - ML_SERVICE_URL=http://ml-service:8000
+      - JWT_SECRET=${JWT_SECRET:?Debe definirse JWT_SECRET antes de iniciar los servicios}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  frontend:
+    build:
+      context: ./fraud-detection-frontend
+      dockerfile: Dockerfile
+    container_name: fraud_frontend_e2e
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_e2e_data:
+
+networks:
+  default:
+    name: fraud_e2e_net
+    driver: bridge
+

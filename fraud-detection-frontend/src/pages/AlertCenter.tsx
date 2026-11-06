@@ -17,7 +17,7 @@ import {
 import { fetchAlerts, reviewAlert } from '@/services/api/alerts.service';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { TransactionDetailDrawer } from '@/components/ml/TransactionDetailDrawer';
-import type { Alert } from '@/types/alert.types';
+import type { Alert, AlertDecision } from '@/types/alert.types';
 import type { AlertStatus, AlertSeverity } from '@/types/api.types';
 import type { TransactionSummary } from '@/types/transaction.types';
 
@@ -27,6 +27,28 @@ interface ToastState {
   message: string;
   type: 'success' | 'error';
 }
+
+// ─── Decision badge ───────────────────────────────────────────────────────────
+
+const DecisionBadge: React.FC<{ decision?: AlertDecision | null }> = ({ decision }) => {
+  if (!decision) return null;
+  const cfg =
+    decision === 'FRAUD_CONFIRMED'
+      ? { cls: 'bg-red-500/15 text-red-400 border-red-500/35', label: 'Fraude Confirmado' }
+      : decision === 'FALSE_POSITIVE'
+      ? { cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25', label: 'Falso Positivo' }
+      : { cls: 'bg-amber-500/10 text-amber-400 border-amber-500/25', label: 'Requiere Seguimiento' };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono font-medium border ${cfg.cls}`}
+      role="status"
+      aria-label={`Resolución: ${cfg.label}`}
+    >
+      {cfg.label}
+    </span>
+  );
+};
 
 // ─── Severity badge ───────────────────────────────────────────────────────────
 
@@ -102,8 +124,8 @@ export const AlertCenter: React.FC = () => {
 
   // Review mutation — used for quick-review from the table (not the drawer)
   const reviewMutation = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      reviewAlert(id, notes ? { notes } : undefined),
+    mutationFn: ({ id, decision, notes }: { id: string; decision: AlertDecision; notes?: string }) =>
+      reviewAlert(id, { decision, notes }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['alerts'] });
       showToast('Alerta marcada como REVISADA.', 'success');
@@ -262,6 +284,7 @@ export const AlertCenter: React.FC = () => {
                 <th className="text-left px-4 py-3 text-[#8A929B] font-medium">Descripción</th>
                 <th className="text-left px-4 py-3 text-[#8A929B] font-medium">Riesgo</th>
                 <th className="text-left px-4 py-3 text-[#8A929B] font-medium">Estado</th>
+                <th className="text-left px-4 py-3 text-[#8A929B] font-medium">Resolución</th>
                 <th className="text-left px-4 py-3 text-[#8A929B] font-medium">Fecha</th>
                 <th className="text-left px-4 py-3 text-[#8A929B] font-medium">Acción</th>
               </tr>
@@ -284,6 +307,15 @@ export const AlertCenter: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={alert.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {alert.decision ? (
+                      <DecisionBadge decision={alert.decision} />
+                    ) : alert.status === 'REVIEWED' ? (
+                      <span className="text-[#8A929B] text-xs font-mono">Revisada</span>
+                    ) : (
+                      <span className="text-sky-400/70 text-xs font-mono">Pendiente</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[#8A929B]">
                     {new Date(alert.createdAt).toLocaleString('es-CO', {

@@ -1,5 +1,9 @@
 import type { RiskLevel, AlertStatus, AlertSeverity, PaginationParams } from './api.types';
 
+// ── Alert Decisions ───────────────────────────────────────────────────────────
+
+export type AlertDecision = 'FRAUD_CONFIRMED' | 'FALSE_POSITIVE' | 'REQUIRES_FOLLOWUP';
+
 // ── Alert Types ───────────────────────────────────────────────────────────────
 
 export interface Alert {
@@ -8,6 +12,8 @@ export interface Alert {
   severity: AlertSeverity;
   description: string;
   status: AlertStatus;
+  decision?: AlertDecision;
+  notes?: string;
   createdAt: string;
   riskScore: number;
   reviewedAt?: string;
@@ -21,8 +27,10 @@ export interface AlertDetail extends Alert {
 export interface AlertReviewResponse {
   alertId: string;
   status: AlertStatus;
+  decision: AlertDecision;
   reviewedAt: string;
   reviewedBy: string;
+  notes?: string;
 }
 
 export interface AlertFilters extends PaginationParams {
@@ -33,6 +41,7 @@ export interface AlertFilters extends PaginationParams {
 }
 
 export interface ReviewAlertRequest {
+  decision: AlertDecision;
   notes?: string;
 }
 
@@ -72,6 +81,8 @@ export interface DashboardStatistics {
     medium: number;
     low: number;
   }>;
+  amountAtRisk?: number;
+  protectedCapital?: number;
 }
 
 // ── User Behavior ─────────────────────────────────────────────────────────────

@@ -26,9 +26,9 @@ export const fetchAlertDetail = async (id: string): Promise<AlertDetail> => {
 
 export const reviewAlert = async (
   id: string,
-  request?: ReviewAlertRequest
+  request: ReviewAlertRequest
 ): Promise<AlertReviewResponse> => {
-  const { data } = await apiClient.patch<AlertReviewResponse>(`/alerts/${id}/review`, request ?? {});
+  const { data } = await apiClient.patch<AlertReviewResponse>(`/alerts/${id}/review`, request);
   return data;
 };
 

@@ -36,16 +36,17 @@ describe('AlertCenter', () => {
     server.resetHandlers();
   });
 
-  it('renderiza el título y la lista inicial de alertas desde el backend', async () => {
+  it('renderiza el título, las columnas de la tabla y la resolución para alertas revisadas', async () => {
     renderAlertCenter();
 
     expect(screen.getByText('Centro de Alertas')).toBeInTheDocument();
 
     await waitFor(() => {
+      expect(screen.getByText('Resolución')).toBeInTheDocument();
       expect(screen.getByText('ALT-001')).toBeInTheDocument();
-      expect(screen.getByText('ALT-002')).toBeInTheDocument();
-      expect(screen.getByText('ALT-003')).toBeInTheDocument();
       expect(screen.getByText('ALT-004')).toBeInTheDocument();
+      // ALT-004 está REVIEWED con FRAUD_CONFIRMED
+      expect(screen.getByText('Fraude Confirmado')).toBeInTheDocument();
     });
   });
 

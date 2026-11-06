@@ -22,6 +22,8 @@ public class AlertResponse {
     private String severity;
     private String description;
     private String status;
+    private String decision;
+    private String notes;
     private Instant createdAt;
     private BigDecimal riskScore;
 }

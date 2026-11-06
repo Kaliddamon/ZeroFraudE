@@ -60,10 +60,20 @@ describe('alerts.service', () => {
   });
 
   describe('reviewAlert', () => {
-    it('registra la revisiÃ³n de la alerta y devuelve estado REVIEWED', async () => {
-      const result = await reviewAlert('ALT-001', { notes: 'RevisiÃ³n satisfactoria' });
+    it('registra la revisión de la alerta con decisión y devuelve estado REVIEWED', async () => {
+      const result = await reviewAlert('ALT-001', {
+        decision: 'FRAUD_CONFIRMED',
+        notes: 'Revisión satisfactoria',
+      });
       expect(result.alertId).toBe('ALT-001');
       expect(result.status).toBe('REVIEWED');
+      expect(result.decision).toBe('FRAUD_CONFIRMED');
+      expect(result.notes).toBe('Revisión satisfactoria');
+    });
+
+    it('rechaza la revisión cuando falta la decisión obligatoria', async () => {
+      // @ts-expect-error probando rechazo de payload sin decisión
+      await expect(reviewAlert('ALT-001', { notes: 'Sin decisión' })).rejects.toThrow();
     });
   });
 });

@@ -65,8 +65,12 @@ public class StatisticsService {
 
         long openAlerts = alertRepository.countByStatus(AlertStatus.OPEN);
 
-        // Risk trend: daily breakdown for the period
+        // Risk trend: daily breakdown ensuring 7-day temporal window ending at 'to'
         List<RiskTrendEntry> riskTrend = buildRiskTrend(from, to);
+
+        // Financial KPIs: Amount at Risk & Protected Capital (confirmed fraud)
+        BigDecimal amountAtRisk = transactionRepository.sumAmountAtRiskBetween(from, to);
+        BigDecimal protectedCapital = alertRepository.sumConfirmedFraudAmountBetween(from, to);
 
         return DashboardStatisticsResponse.builder()
                 .period(PeriodInfo.builder().from(from).to(to).build())
@@ -78,13 +82,22 @@ public class StatisticsService {
                 .riskDistribution(riskDistribution)
                 .openAlerts(openAlerts)
                 .riskTrend(riskTrend)
+                .amountAtRisk(amountAtRisk)
+                .protectedCapital(protectedCapital)
                 .build();
     }
 
     private List<RiskTrendEntry> buildRiskTrend(Instant from, Instant to) {
         List<RiskTrendEntry> trend = new ArrayList<>();
-        LocalDate startDate = LocalDate.ofInstant(from, ZoneOffset.UTC);
         LocalDate endDate = LocalDate.ofInstant(to, ZoneOffset.UTC);
+        LocalDate startDate = from != null
+                ? LocalDate.ofInstant(from, ZoneOffset.UTC)
+                : endDate.minusDays(6);
+
+        // If requested window is narrower than 7 days, guarantee 7 days ending at endDate
+        if (startDate.isAfter(endDate.minusDays(6))) {
+            startDate = endDate.minusDays(6);
+        }
 
         for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
             Instant dayStart = date.atStartOfDay(ZoneOffset.UTC).toInstant();

@@ -4,6 +4,7 @@ import com.frauddetection.domain.Alert;
 import com.frauddetection.domain.FraudAnalysis;
 import com.frauddetection.domain.Transaction;
 import com.frauddetection.domain.User;
+import com.frauddetection.domain.enums.AlertDecision;
 import com.frauddetection.domain.enums.AlertStatus;
 import com.frauddetection.domain.enums.RiskLevel;
 import com.frauddetection.dto.response.AlertDetailResponse;
@@ -199,7 +200,7 @@ class AlertServiceTest {
     }
 
     @Test
-    void reviewAlert_shouldMarkAsReviewed_whenOpen() {
+    void reviewAlert_shouldMarkAsReviewed_whenFalsePositive() {
         UUID alertId = UUID.randomUUID();
         UUID reviewerId = UUID.randomUUID();
         Alert alert = Alert.builder()
@@ -212,13 +213,72 @@ class AlertServiceTest {
         User reviewer = User.builder().id(reviewerId).email("analyst@example.com").build();
         when(userRepository.findById(reviewerId)).thenReturn(Optional.of(reviewer));
 
-        AlertReviewResponse response = alertService.reviewAlert(alertId, "False positive confirmed", reviewerId);
+        AlertReviewResponse response = alertService.reviewAlert(alertId, AlertDecision.FALSE_POSITIVE, "False positive confirmed", reviewerId);
 
         assertThat(response.getStatus()).isEqualTo("REVIEWED");
+        assertThat(response.getDecision()).isEqualTo("FALSE_POSITIVE");
+        assertThat(response.getNotes()).isEqualTo("False positive confirmed");
         assertThat(response.getReviewedBy()).isEqualTo("analyst@example.com");
         assertThat(alert.getStatus()).isEqualTo(AlertStatus.REVIEWED);
+        assertThat(alert.getDecision()).isEqualTo(AlertDecision.FALSE_POSITIVE);
+        assertThat(alert.getNotes()).isEqualTo("False positive confirmed");
+        assertThat(alert.getDescription()).contains("Decision: FALSE_POSITIVE");
         assertThat(alert.getDescription()).contains("Review notes: False positive confirmed");
         verify(alertRepository).save(alert);
+    }
+
+    @Test
+    void reviewAlert_shouldMarkAsReviewed_whenFraudConfirmed() {
+        UUID alertId = UUID.randomUUID();
+        UUID reviewerId = UUID.randomUUID();
+        Alert alert = Alert.builder()
+                .id(alertId)
+                .status(AlertStatus.OPEN)
+                .description("Carding attack")
+                .build();
+
+        when(alertRepository.findById(alertId)).thenReturn(Optional.of(alert));
+        User reviewer = User.builder().id(reviewerId).email("analyst@example.com").build();
+        when(userRepository.findById(reviewerId)).thenReturn(Optional.of(reviewer));
+
+        AlertReviewResponse response = alertService.reviewAlert(alertId, AlertDecision.FRAUD_CONFIRMED, "Account compromised", reviewerId);
+
+        assertThat(response.getStatus()).isEqualTo("REVIEWED");
+        assertThat(response.getDecision()).isEqualTo("FRAUD_CONFIRMED");
+        assertThat(alert.getDecision()).isEqualTo(AlertDecision.FRAUD_CONFIRMED);
+        verify(alertRepository).save(alert);
+    }
+
+    @Test
+    void reviewAlert_shouldMarkAsReviewed_whenRequiresFollowup() {
+        UUID alertId = UUID.randomUUID();
+        UUID reviewerId = UUID.randomUUID();
+        Alert alert = Alert.builder()
+                .id(alertId)
+                .status(AlertStatus.OPEN)
+                .description("Velocity anomaly")
+                .build();
+
+        when(alertRepository.findById(alertId)).thenReturn(Optional.of(alert));
+        User reviewer = User.builder().id(reviewerId).email("analyst@example.com").build();
+        when(userRepository.findById(reviewerId)).thenReturn(Optional.of(reviewer));
+
+        AlertReviewResponse response = alertService.reviewAlert(alertId, AlertDecision.REQUIRES_FOLLOWUP, "Need customer contact", reviewerId);
+
+        assertThat(response.getStatus()).isEqualTo("REVIEWED");
+        assertThat(response.getDecision()).isEqualTo("REQUIRES_FOLLOWUP");
+        assertThat(alert.getDecision()).isEqualTo(AlertDecision.REQUIRES_FOLLOWUP);
+        verify(alertRepository).save(alert);
+    }
+
+    @Test
+    void reviewAlert_shouldThrowBusinessRuleException_whenDecisionIsNull() {
+        UUID alertId = UUID.randomUUID();
+        UUID reviewerId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> alertService.reviewAlert(alertId, null, "notes", reviewerId))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("Resolution decision is required");
     }
 
     @Test
@@ -228,11 +288,12 @@ class AlertServiceTest {
         Alert alert = Alert.builder()
                 .id(alertId)
                 .status(AlertStatus.REVIEWED)
+                .decision(AlertDecision.FALSE_POSITIVE)
                 .build();
 
         when(alertRepository.findById(alertId)).thenReturn(Optional.of(alert));
 
-        assertThatThrownBy(() -> alertService.reviewAlert(alertId, "notes", reviewerId))
+        assertThatThrownBy(() -> alertService.reviewAlert(alertId, AlertDecision.FRAUD_CONFIRMED, "notes", reviewerId))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("already been reviewed");
     }

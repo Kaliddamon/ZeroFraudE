@@ -2,6 +2,7 @@ package com.frauddetection.service;
 
 import com.frauddetection.domain.Alert;
 import com.frauddetection.domain.FraudAnalysis;
+import com.frauddetection.domain.enums.AlertDecision;
 import com.frauddetection.domain.enums.AlertStatus;
 import com.frauddetection.domain.enums.RiskLevel;
 import com.frauddetection.dto.response.AlertDetailResponse;
@@ -109,11 +110,17 @@ public class AlertService {
     }
 
     /**
-     * Marks an alert as REVIEWED by the current analyst.
-     * Per TDD §7: Returns 409 ALREADY_REVIEWED if already reviewed.
+     * Marks an alert as REVIEWED by the current analyst with a mandatory resolution decision.
+     * Per TDD §7 & FE-08:
+     * - Requires AlertDecision (FRAUD_CONFIRMED, FALSE_POSITIVE, REQUIRES_FOLLOWUP).
+     * - Returns 409 ALREADY_REVIEWED if already reviewed.
      */
     @Transactional
-    public AlertReviewResponse reviewAlert(UUID alertId, String notes, UUID reviewerUserId) {
+    public AlertReviewResponse reviewAlert(UUID alertId, AlertDecision decision, String notes, UUID reviewerUserId) {
+        if (decision == null) {
+            throw new BusinessRuleException("Resolution decision is required to review an alert");
+        }
+
         Alert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new ResourceNotFoundException("Alert", alertId.toString()));
 
@@ -122,10 +129,14 @@ public class AlertService {
         }
 
         alert.setStatus(AlertStatus.REVIEWED);
+        alert.setDecision(decision);
         alert.setReviewedAt(Instant.now());
         alert.setReviewedByUserId(reviewerUserId);
         if (notes != null && !notes.isBlank()) {
-            alert.setDescription(alert.getDescription() + " | Review notes: " + notes);
+            alert.setNotes(notes.trim());
+            alert.setDescription(alert.getDescription() + " | Decision: " + decision.name() + " | Review notes: " + notes.trim());
+        } else {
+            alert.setDescription(alert.getDescription() + " | Decision: " + decision.name());
         }
         alertRepository.save(alert);
 
@@ -133,13 +144,15 @@ public class AlertService {
                 .map(u -> u.getEmail())
                 .orElse(reviewerUserId.toString());
 
-        log.info("Alert {} reviewed by {}", alertId, reviewerEmail);
+        log.info("Alert {} reviewed with decision {} by {}", alertId, decision, reviewerEmail);
 
         return AlertReviewResponse.builder()
                 .alertId(alert.getId().toString())
                 .status(AlertStatus.REVIEWED.name())
+                .decision(alert.getDecision().name())
                 .reviewedAt(alert.getReviewedAt())
                 .reviewedBy(reviewerEmail)
+                .notes(alert.getNotes())
                 .build();
     }
 

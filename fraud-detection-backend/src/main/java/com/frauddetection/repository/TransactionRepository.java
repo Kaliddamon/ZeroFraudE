@@ -67,6 +67,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     long countByTimestampBetween(Instant from, Instant to);
 
     /**
+     * Sum transaction amounts for transactions with HIGH or CRITICAL risk within a time period.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+            JOIN t.fraudAnalysis fa
+            WHERE fa.riskLevel IN (com.frauddetection.domain.enums.RiskLevel.HIGH, com.frauddetection.domain.enums.RiskLevel.CRITICAL)
+              AND fa.analyzedAt BETWEEN :from AND :to
+            """)
+    BigDecimal sumAmountAtRiskBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+    /**
      * Find distinct countries used by an external user.
      */
     @Query("SELECT DISTINCT t.country FROM Transaction t WHERE t.externalUserId = :userId")

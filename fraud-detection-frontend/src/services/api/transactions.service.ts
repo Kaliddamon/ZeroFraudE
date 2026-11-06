@@ -17,3 +17,14 @@ export const fetchTransactionDetail = async (
   const { data } = await apiClient.get<TransactionDetail>(`/transactions/${id}`);
   return data;
 };
+
+export const fetchUserTransactions = async (
+  externalUserId: string,
+  params?: { page?: number; size?: number }
+): Promise<PagedResponse<TransactionSummary>> => {
+  const { data } = await apiClient.get<PagedResponse<TransactionSummary>>(
+    `/users/${externalUserId}/transactions`,
+    { params }
+  );
+  return data;
+};

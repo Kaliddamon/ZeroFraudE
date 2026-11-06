@@ -1,5 +1,6 @@
 package com.frauddetection.domain;
 
+import com.frauddetection.domain.enums.AlertDecision;
 import com.frauddetection.domain.enums.AlertStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,7 +12,7 @@ import java.util.UUID;
 
 /**
  * Alert generated automatically when a FraudAnalysis has risk_level HIGH or CRITICAL.
- * Can be marked as REVIEWED by an analyst via PATCH /alerts/{id}/review.
+ * Can be marked as REVIEWED with an AlertDecision by an analyst via PATCH /alerts/{id}/review.
  */
 @Entity
 @Table(name = "alerts")
@@ -41,6 +42,13 @@ public class Alert {
     @Column(nullable = false, length = 10)
     @Builder.Default
     private AlertStatus status = AlertStatus.OPEN;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "decision", length = 30)
+    private AlertDecision decision;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

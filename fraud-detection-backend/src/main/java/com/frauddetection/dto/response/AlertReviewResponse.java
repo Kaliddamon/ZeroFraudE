@@ -18,6 +18,8 @@ public class AlertReviewResponse {
 
     private String alertId;
     private String status;
+    private String decision;
     private Instant reviewedAt;
     private String reviewedBy;
+    private String notes;
 }

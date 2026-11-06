@@ -370,7 +370,40 @@ describe('TransactionDetailDrawer', () => {
     });
   });
 
-  it('permite registrar la revisión de una alerta asociada con notas y muestra Toast de éxito', async () => {
+  it('renderiza el selector con las tres decisiones de resolución (Fraude Confirmado, Falso Positivo, Requiere Seguimiento)', async () => {
+    renderDrawer();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /marcar alerta como revisada/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /marcar alerta como revisada/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Registrar Revisión de Alerta')).toBeInTheDocument();
+      expect(screen.getByText(/decisión de resolución/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /fraude confirmado/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /falso positivo/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /requiere seguimiento/i })).toBeInTheDocument();
+    });
+  });
+
+  it('impide confirmar la revisión sin seleccionar una decisión obligatoria', async () => {
+    renderDrawer();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /marcar alerta como revisada/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /marcar alerta como revisada/i }));
+
+    const confirmBtn = screen.getByRole('button', { name: /confirmar revisión/i });
+    expect(confirmBtn).toBeDisabled();
+
+    // Seleccionar decisión habilita el botón
+    fireEvent.click(screen.getByRole('button', { name: /falso positivo/i }));
+    expect(confirmBtn).not.toBeDisabled();
+  });
+
+  it('permite registrar la revisión de una alerta asociada con decisión y notas, mostrando Toast de éxito', async () => {
     renderDrawer();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /marcar alerta como revisada/i })).toBeInTheDocument();
@@ -381,17 +414,21 @@ describe('TransactionDetailDrawer', () => {
 
     // Debe abrirse el formulario de revisión
     expect(screen.getByText('Registrar Revisión de Alerta')).toBeInTheDocument();
-    const textarea = screen.getByPlaceholderText(/detalla las conclusiones de la investigación/i);
-    expect(textarea).toBeInTheDocument();
 
+    // Seleccionar decisión
+    fireEvent.click(screen.getByRole('button', { name: /falso positivo/i }));
+
+    // Ingresar notas
+    const textarea = screen.getByPlaceholderText(/detalla las conclusiones de la investigación/i);
     fireEvent.change(textarea, { target: { value: 'Comercio habitual verificado telefónicamente.' } });
 
     const confirmBtn = screen.getByRole('button', { name: /confirmar revisión/i });
+    expect(confirmBtn).not.toBeDisabled();
     fireEvent.click(confirmBtn);
 
-    // Debe mostrarse el Toast con confirmación
+    // Debe mostrarse el Toast con confirmación y tipo de resolución
     await waitFor(() => {
-      expect(screen.getByText(/marcada como REVISADA/i)).toBeInTheDocument();
+      expect(screen.getByText(/marcada como REVISADA.*Falso Positivo/i)).toBeInTheDocument();
     });
   });
 
@@ -402,6 +439,7 @@ describe('TransactionDetailDrawer', () => {
         return HttpResponse.json({
           alertId: 'ALT-001',
           status: 'REVIEWED',
+          decision: 'FRAUD_CONFIRMED',
           reviewedAt: new Date().toISOString(),
           reviewedBy: 'analyst@frauddetect.io',
         });
@@ -416,8 +454,10 @@ describe('TransactionDetailDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: /marcar alerta como revisada/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /confirmar revisión/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /fraude confirmado/i })).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByRole('button', { name: /fraude confirmado/i }));
 
     const confirmBtn = screen.getByRole('button', { name: /confirmar revisión/i });
     fireEvent.click(confirmBtn);
@@ -429,7 +469,44 @@ describe('TransactionDetailDrawer', () => {
     expect(confirmBtn).toBeDisabled();
 
     await waitFor(() => {
-      expect(screen.getByText(/marcada como REVISADA/i)).toBeInTheDocument();
+      expect(screen.getByText(/marcada como REVISADA.*Fraude Confirmado/i)).toBeInTheDocument();
+    });
+  });
+
+  it('muestra el panel de resolución registrada cuando la alerta ya está revisada', async () => {
+    server.use(
+      http.get(`${BASE}/alerts`, () => {
+        return HttpResponse.json({
+          content: [
+            {
+              alertId: 'ALT-001',
+              transactionId: 'TX0000001',
+              severity: 'CRITICAL',
+              description: 'Alert desc',
+              status: 'REVIEWED',
+              decision: 'FRAUD_CONFIRMED',
+              notes: 'Confirmado por actividad atípica persistente',
+              reviewedBy: 'senior@frauddetect.io',
+              reviewedAt: '2023-10-27T08:00:00Z',
+              createdAt: '2023-10-27T03:14:02Z',
+              riskScore: 0.95,
+            },
+          ],
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        });
+      })
+    );
+
+    renderDrawer();
+
+    await waitFor(() => {
+      expect(screen.getByText('Resolución Registrada')).toBeInTheDocument();
+      expect(screen.getAllByText('Fraude Confirmado').length).toBeGreaterThan(0);
+      expect(screen.getByText(/senior@frauddetect\.io/i)).toBeInTheDocument();
+      expect(screen.getByText(/Confirmado por actividad atípica persistente/i)).toBeInTheDocument();
     });
   });
 

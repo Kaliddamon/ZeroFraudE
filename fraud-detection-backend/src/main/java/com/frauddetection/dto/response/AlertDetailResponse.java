@@ -21,6 +21,8 @@ public class AlertDetailResponse {
     private String severity;
     private String description;
     private String status;
+    private String decision;
+    private String notes;
     private Instant createdAt;
     private Instant reviewedAt;
     private String reviewedBy;

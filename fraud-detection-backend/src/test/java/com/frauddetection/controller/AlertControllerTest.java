@@ -2,6 +2,7 @@ package com.frauddetection.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.frauddetection.domain.enums.AlertDecision;
 import com.frauddetection.dto.request.CreateAlertRequest;
 import com.frauddetection.dto.request.ReviewAlertRequest;
 import com.frauddetection.dto.response.AlertDetailResponse;
@@ -201,18 +202,23 @@ class AlertControllerTest {
     }
 
     @Test
-    void review_shouldReturn200_whenValidReview() throws Exception {
+    void review_shouldReturn200_whenValidReviewWithDecision() throws Exception {
         UUID alertId = UUID.randomUUID();
-        ReviewAlertRequest request = new ReviewAlertRequest("Investigated and verified legitimate.");
+        ReviewAlertRequest request = ReviewAlertRequest.builder()
+                .decision(AlertDecision.FALSE_POSITIVE)
+                .notes("Investigated and verified legitimate.")
+                .build();
 
         AlertReviewResponse reviewResponse = AlertReviewResponse.builder()
                 .alertId(alertId.toString())
                 .status("REVIEWED")
+                .decision("FALSE_POSITIVE")
+                .notes("Investigated and verified legitimate.")
                 .reviewedAt(Instant.now())
                 .reviewedBy("analyst@frauddetection.com")
                 .build();
 
-        when(alertService.reviewAlert(eq(alertId), eq("Investigated and verified legitimate."), eq(testUserId)))
+        when(alertService.reviewAlert(eq(alertId), eq(AlertDecision.FALSE_POSITIVE), eq("Investigated and verified legitimate."), eq(testUserId)))
                 .thenReturn(reviewResponse);
 
         mockMvc.perform(patch("/api/v1/alerts/" + alertId + "/review")
@@ -221,6 +227,33 @@ class AlertControllerTest {
                         .principal(new TestingAuthenticationToken(testUserId, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REVIEWED"))
+                .andExpect(jsonPath("$.decision").value("FALSE_POSITIVE"))
+                .andExpect(jsonPath("$.notes").value("Investigated and verified legitimate."))
                 .andExpect(jsonPath("$.reviewedBy").value("analyst@frauddetection.com"));
+    }
+
+    @Test
+    void review_shouldReturn400BadRequest_whenDecisionIsMissing() throws Exception {
+        UUID alertId = UUID.randomUUID();
+        String jsonWithoutDecision = "{\"notes\": \"Missing decision\"}";
+
+        mockMvc.perform(patch("/api/v1/alerts/" + alertId + "/review")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonWithoutDecision)
+                        .principal(new TestingAuthenticationToken(testUserId, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void review_shouldReturn400BadRequest_whenDecisionIsInvalid() throws Exception {
+        UUID alertId = UUID.randomUUID();
+        String jsonWithInvalidDecision = "{\"decision\": \"UNKNOWN_DECISION\", \"notes\": \"Invalid\"}";
+
+        mockMvc.perform(patch("/api/v1/alerts/" + alertId + "/review")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonWithInvalidDecision)
+                        .principal(new TestingAuthenticationToken(testUserId, null)))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -24,7 +24,7 @@ import { fetchTransactionDetail } from '@/services/api/transactions.service';
 import { fetchAlerts, reviewAlert, createAlert } from '@/services/api/alerts.service';
 import { AppError } from '@/services/api/apiClient';
 import type { TransactionSummary, TransactionDetail } from '@/types/transaction.types';
-import type { Alert, CreateAlertRequest } from '@/types/alert.types';
+import type { Alert, CreateAlertRequest, AlertDecision } from '@/types/alert.types';
 
 interface TransactionDetailDrawerProps {
   transaction: TransactionSummary | null;
@@ -41,6 +41,8 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
 
   // Estados locales para acciones de revisión y feedback
   const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewDecision, setReviewDecision] = useState<AlertDecision | null>(null);
+  const [decisionError, setDecisionError] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
@@ -82,17 +84,34 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
     (a) => a.transactionId === transaction?.transactionId
   );
 
-  // 3. Mutación para marcar alerta como revisada
+  // 3. Mutación para marcar alerta como revisada con decisión tipificada
   const reviewMutation = useMutation({
-    mutationFn: async ({ alertId, notes }: { alertId: string; notes?: string }) => {
-      return reviewAlert(alertId, { notes });
+    mutationFn: async ({
+      alertId,
+      decision,
+      notes,
+    }: {
+      alertId: string;
+      decision: AlertDecision;
+      notes?: string;
+    }) => {
+      return reviewAlert(alertId, { decision, notes });
     },
     onSuccess: (data) => {
-      showToast('success', `Alerta ${data.alertId} marcada como REVISADA.`);
+      const decisionLabels: Record<AlertDecision, string> = {
+        FRAUD_CONFIRMED: 'Fraude Confirmado',
+        FALSE_POSITIVE: 'Falso Positivo',
+        REQUIRES_FOLLOWUP: 'Requiere Seguimiento',
+      };
+      const label = decisionLabels[data.decision] ?? data.decision;
+      showToast('success', `Alerta ${data.alertId} marcada como REVISADA (${label}).`);
       setIsReviewOpen(false);
       setReviewNotes('');
+      setReviewDecision(null);
+      setDecisionError(false);
       // Invalidar consultas relacionadas
       queryClient.invalidateQueries({ queryKey: ['alerts-by-tx', transaction?.transactionId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
       queryClient.invalidateQueries({ queryKey: ['transaction-detail', transaction?.transactionId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
@@ -158,11 +177,20 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
   const ipAddress = detail?.ipAddress ?? '198.51.100.42 (TLS v1.3)';
   const currency = detail?.currency ?? 'USD';
 
-  // Manejador para acción de revisión
+  // Manejador para acción de revisión con decisión obligatoria
   const handleConfirmReview = () => {
+    if (!reviewDecision) {
+      setDecisionError(true);
+      showToast(
+        'error',
+        'Debes seleccionar una decisión de resolución (Fraude Confirmado, Falso Positivo o Requiere Seguimiento).'
+      );
+      return;
+    }
     const alertId = associatedAlert?.alertId ?? `ALT-${transaction.transactionId.replace(/\D/g, '') || '001'}`;
     reviewMutation.mutate({
       alertId,
+      decision: reviewDecision,
       notes: reviewNotes.trim() ? reviewNotes.trim() : undefined,
     });
   };
@@ -229,15 +257,34 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
                 </h2>
                 <RiskBadge level={transaction.riskLevel} />
                 {associatedAlert && (
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider ${
-                      associatedAlert.status === 'REVIEWED'
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                        : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                    }`}
-                  >
-                    Alerta: {associatedAlert.status}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider ${
+                        associatedAlert.status === 'REVIEWED'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                          : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                      }`}
+                    >
+                      Alerta: {associatedAlert.status}
+                    </span>
+                    {associatedAlert.decision && (
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded border font-bold uppercase tracking-wider ${
+                          associatedAlert.decision === 'FRAUD_CONFIRMED'
+                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                            : associatedAlert.decision === 'FALSE_POSITIVE'
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                        }`}
+                      >
+                        {associatedAlert.decision === 'FRAUD_CONFIRMED'
+                          ? 'Fraude Confirmado'
+                          : associatedAlert.decision === 'FALSE_POSITIVE'
+                          ? 'Falso Positivo'
+                          : 'Requiere Seguimiento'}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
               <p className="text-xs font-mono text-[#8A929B] mt-0.5">
@@ -528,19 +575,78 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
             <ExplainabilityPanel
               explanations={explanations}
               userId={transaction.externalUserId}
+              transactionId={transaction.transactionId}
               riskLevel={riskLevel}
             />
           )}
 
+          {/* ── Panel de Resolución de Alerta Existente (si ya fue revisada) ── */}
+          {associatedAlert?.status === 'REVIEWED' && (
+            <div className="p-4 rounded-xl bg-[#14181B] border border-emerald-500/30 space-y-2.5 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wide">
+                    Resolución Registrada
+                  </h4>
+                </div>
+                {associatedAlert.decision && (
+                  <span
+                    className={`text-xs font-mono px-2.5 py-0.5 rounded-full border font-bold uppercase ${
+                      associatedAlert.decision === 'FRAUD_CONFIRMED'
+                        ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                        : associatedAlert.decision === 'FALSE_POSITIVE'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}
+                  >
+                    {associatedAlert.decision === 'FRAUD_CONFIRMED'
+                      ? 'Fraude Confirmado'
+                      : associatedAlert.decision === 'FALSE_POSITIVE'
+                      ? 'Falso Positivo'
+                      : 'Requiere Seguimiento'}
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] font-mono text-[#8A929B] space-y-1">
+                {associatedAlert.reviewedBy && (
+                  <p>
+                    Revisor:{' '}
+                    <span className="text-[#D1D5DB] font-medium">{associatedAlert.reviewedBy}</span>
+                  </p>
+                )}
+                {associatedAlert.reviewedAt && (
+                  <p>
+                    Fecha de revisión:{' '}
+                    <span className="text-[#D1D5DB]">
+                      {new Date(associatedAlert.reviewedAt).toLocaleString('es-CO')}
+                    </span>
+                  </p>
+                )}
+                {associatedAlert.notes && (
+                  <div className="mt-2 text-[#E1E4E8] bg-[#0F1113] p-2.5 rounded-lg border border-[#23272B]">
+                    <strong className="text-[#8A929B] block text-[10px] uppercase">
+                      Notas de investigación:
+                    </strong>
+                    <p className="mt-0.5 whitespace-pre-wrap">{associatedAlert.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── Sección de Formulario de Revisión de Alerta (si se abre) ───── */}
           {isReviewOpen && (
-            <div className="p-4 rounded-xl bg-[#16191D] border border-cyan-500/30 space-y-3 animate-fade-in">
+            <div className="p-4 rounded-xl bg-[#16191D] border border-cyan-500/30 space-y-4 animate-fade-in">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
                   <FileText className="w-4 h-4" /> Registrar Revisión de Alerta
                 </span>
                 <button
-                  onClick={() => setIsReviewOpen(false)}
+                  onClick={() => {
+                    setIsReviewOpen(false);
+                    setDecisionError(false);
+                  }}
                   className="text-[#8A929B] hover:text-white"
                   aria-label="Cancelar revisión"
                 >
@@ -548,13 +654,99 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
                 </button>
               </div>
 
+              {/* Selector de Decisión Obligatoria */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-mono text-[#F3F4F6] font-semibold block">
+                    Decisión de Resolución <span className="text-red-400">*</span>:
+                  </label>
+                  <span className="text-[10px] font-mono text-[#8A929B]">Obligatorio</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewDecision('FRAUD_CONFIRMED');
+                      setDecisionError(false);
+                    }}
+                    className={`p-2.5 rounded-lg border text-left font-mono transition-all flex flex-col justify-between gap-1.5 ${
+                      reviewDecision === 'FRAUD_CONFIRMED'
+                        ? 'bg-red-500/20 text-red-300 border-red-500 ring-1 ring-red-500 shadow-sm'
+                        : 'bg-[#141618] text-[#D1D5DB] border-[#282E35] hover:border-red-500/40 hover:bg-[#1A1D20]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-red-400">
+                      <ShieldAlert className="w-4 h-4 shrink-0" />
+                      <span>Fraude Confirmado</span>
+                    </div>
+                    <span className="text-[10px] text-[#8A929B] leading-tight">
+                      Actividad fraudulenta verificada
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewDecision('FALSE_POSITIVE');
+                      setDecisionError(false);
+                    }}
+                    className={`p-2.5 rounded-lg border text-left font-mono transition-all flex flex-col justify-between gap-1.5 ${
+                      reviewDecision === 'FALSE_POSITIVE'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 ring-1 ring-emerald-500 shadow-sm'
+                        : 'bg-[#141618] text-[#D1D5DB] border-[#282E35] hover:border-emerald-500/40 hover:bg-[#1A1D20]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>Falso Positivo</span>
+                    </div>
+                    <span className="text-[10px] text-[#8A929B] leading-tight">
+                      Transacción legítima comprobada
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewDecision('REQUIRES_FOLLOWUP');
+                      setDecisionError(false);
+                    }}
+                    className={`p-2.5 rounded-lg border text-left font-mono transition-all flex flex-col justify-between gap-1.5 ${
+                      reviewDecision === 'REQUIRES_FOLLOWUP'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500 ring-1 ring-amber-500 shadow-sm'
+                        : 'bg-[#141618] text-[#D1D5DB] border-[#282E35] hover:border-amber-500/40 hover:bg-[#1A1D20]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>Requiere Seguimiento</span>
+                    </div>
+                    <span className="text-[10px] text-[#8A929B] leading-tight">
+                      Monitoreo o consulta secundaria
+                    </span>
+                  </button>
+                </div>
+                {decisionError && (
+                  <p className="text-[11px] font-mono text-red-400 flex items-center gap-1 mt-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Selecciona una de las tres decisiones de resolución para continuar.
+                  </p>
+                )}
+              </div>
+
+              {/* Campo de Notas */}
               <div className="space-y-1.5">
-                <label
-                  htmlFor="review-notes"
-                  className="text-[11px] font-mono text-[#8A929B] block"
-                >
-                  Notas de investigación (opcional, máx 1000 caracteres):
-                </label>
+                <div className="flex justify-between items-center">
+                  <label
+                    htmlFor="review-notes"
+                    className="text-[11px] font-mono text-[#8A929B] block"
+                  >
+                    Notas de investigación (opcional, máx 1000 caracteres):
+                  </label>
+                  <span className="text-[10px] font-mono text-[#8A929B]">
+                    {reviewNotes.length}/1000
+                  </span>
+                </div>
                 <textarea
                   id="review-notes"
                   value={reviewNotes}
@@ -565,10 +757,14 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
                 />
               </div>
 
+              {/* Botones de acción */}
               <div className="flex justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setIsReviewOpen(false)}
+                  onClick={() => {
+                    setIsReviewOpen(false);
+                    setDecisionError(false);
+                  }}
                   className="px-3 py-1.5 rounded-lg bg-[#1F2328] hover:bg-[#282E35] text-[#D1D5DB] text-xs font-mono transition-colors border border-[#30363D]"
                 >
                   Cancelar
@@ -576,7 +772,7 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
                 <button
                   type="button"
                   onClick={handleConfirmReview}
-                  disabled={reviewMutation.isPending}
+                  disabled={reviewMutation.isPending || !reviewDecision}
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-sm"
                 >
                   {reviewMutation.isPending ? (

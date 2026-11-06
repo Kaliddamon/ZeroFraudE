@@ -20,6 +20,8 @@ public final class AlertMapper {
                 .severity(alert.getSeverity())
                 .description(alert.getDescription())
                 .status(alert.getStatus().name())
+                .decision(alert.getDecision() != null ? alert.getDecision().name() : null)
+                .notes(alert.getNotes())
                 .createdAt(alert.getCreatedAt())
                 .riskScore(alert.getFraudAnalysis().getRiskScore())
                 .build();
@@ -31,6 +33,8 @@ public final class AlertMapper {
                 .severity(alert.getSeverity())
                 .description(alert.getDescription())
                 .status(alert.getStatus().name())
+                .decision(alert.getDecision() != null ? alert.getDecision().name() : null)
+                .notes(alert.getNotes())
                 .createdAt(alert.getCreatedAt())
                 .reviewedAt(alert.getReviewedAt())
                 .transaction(TransactionMapper.toDetail(alert.getFraudAnalysis().getTransaction()))

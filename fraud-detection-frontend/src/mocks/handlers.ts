@@ -4,7 +4,7 @@ import type {
   TransactionDetail,
   TransactionCreateResponse,
 } from '@/types/transaction.types';
-import type { Alert, AlertDetail, DashboardStatistics, UserBehavior, CreateAlertRequest } from '@/types/alert.types';
+import type { Alert, AlertDetail, DashboardStatistics, UserBehavior, CreateAlertRequest, ReviewAlertRequest } from '@/types/alert.types';
 import type { AuthResponse, PagedResponse } from '@/types/api.types';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ const mockAlerts: Alert[] = [
   { alertId: 'ALT-001', transactionId: 'TX0000001', severity: 'CRITICAL', description: 'Critical fraud probability 0.94 detected — New device + unusual country + night transaction', status: 'OPEN',     createdAt: '2023-10-27T03:14:02Z', riskScore: 0.93 },
   { alertId: 'ALT-002', transactionId: 'TX0000002', severity: 'HIGH',     description: 'High-risk transaction: amount 8.3× above user average with new country',                     status: 'OPEN',     createdAt: '2023-10-27T14:32:01Z', riskScore: 0.72 },
   { alertId: 'ALT-003', transactionId: 'TX0000005', severity: 'HIGH',     description: 'Velocity burst detected: 4 transactions in 5 minutes from the same device',                  status: 'OPEN',     createdAt: '2023-10-27T16:45:02Z', riskScore: 0.68 },
-  { alertId: 'ALT-004', transactionId: 'TX0000007', severity: 'CRITICAL', description: 'Critical: transaction from high-risk country with known fraud device signature',              status: 'REVIEWED', createdAt: '2023-10-26T02:22:01Z', riskScore: 0.97,
+  { alertId: 'ALT-004', transactionId: 'TX0000007', severity: 'CRITICAL', description: 'Critical: transaction from high-risk country with known fraud device signature',              status: 'REVIEWED', decision: 'FRAUD_CONFIRMED', notes: 'Confirmado por actividad atípica', createdAt: '2023-10-26T02:22:01Z', riskScore: 0.97,
     reviewedAt: '2023-10-26T09:00:00Z', reviewedBy: 'analyst@frauddetect.io' },
 ];
 
@@ -75,6 +75,8 @@ const mockDashboard: DashboardStatistics = {
   averageRiskScore: 0.31,
   riskDistribution: { LOW: 980, MEDIUM: 219, HIGH: 41, CRITICAL: 7 },
   openAlerts: 14,
+  amountAtRisk: 68420.50,
+  protectedCapital: 42150.00,
   riskTrend: [
     { date: '2023-10-21', high: 6,  medium: 32, low: 178 },
     { date: '2023-10-22', high: 9,  medium: 40, low: 195 },
@@ -177,13 +179,40 @@ export const handlers = [
   }),
 
   // PATCH /alerts/:id/review
-  http.patch(`${BASE}/alerts/:id/review`, async ({ params }) => {
+  http.patch(`${BASE}/alerts/:id/review`, async ({ params, request }) => {
     await fakeDelay();
+    const body = (await request.json().catch(() => ({}))) as Partial<ReviewAlertRequest>;
+
+    const validDecisions = ['FRAUD_CONFIRMED', 'FALSE_POSITIVE', 'REQUIRES_FOLLOWUP'];
+    if (!body?.decision || !validDecisions.includes(body.decision)) {
+      return HttpResponse.json(
+        {
+          title: 'Bad Request',
+          detail: 'Resolution decision is required and must be FRAUD_CONFIRMED, FALSE_POSITIVE, or REQUIRES_FOLLOWUP',
+        },
+        { status: 400 }
+      );
+    }
+
+    const alert = mockAlerts.find((a) => a.alertId === params['id']);
+    const reviewedAt = new Date().toISOString();
+    const reviewedBy = 'analyst@frauddetect.io';
+
+    if (alert) {
+      alert.status = 'REVIEWED';
+      alert.decision = body.decision;
+      alert.notes = body.notes;
+      alert.reviewedAt = reviewedAt;
+      alert.reviewedBy = reviewedBy;
+    }
+
     return HttpResponse.json({
       alertId: params['id'],
       status: 'REVIEWED',
-      reviewedAt: new Date().toISOString(),
-      reviewedBy: 'analyst@frauddetect.io',
+      decision: body.decision,
+      reviewedAt,
+      reviewedBy,
+      notes: body.notes,
     });
   }),
 
@@ -232,11 +261,20 @@ export const handlers = [
   }),
 
   // GET /users/:id/transactions
-  http.get(`${BASE}/users/:id/transactions`, async () => {
+  http.get(`${BASE}/users/:id/transactions`, async ({ params, request }) => {
     await fakeDelay();
+    const url  = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') ?? '0');
+    const size = parseInt(url.searchParams.get('size') ?? '5');
+    const userId = params['id'] as string;
+    // Filter by user; fall back to all mock transactions when no match (keeps test flexibility)
+    const userTxs = mockTransactions.filter(t => t.externalUserId === userId);
+    const pool = userTxs.length > 0 ? userTxs : mockTransactions.slice(0, 4);
+    const paged = pool.slice(page * size, (page + 1) * size);
     const response: PagedResponse<TransactionSummary> = {
-      content: mockTransactions.slice(0, 4), page: 0, size: 20,
-      totalElements: 4, totalPages: 1,
+      content: paged, page, size,
+      totalElements: pool.length,
+      totalPages: Math.ceil(pool.length / size),
     };
     return HttpResponse.json(response);
   }),

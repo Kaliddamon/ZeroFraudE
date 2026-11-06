@@ -59,16 +59,14 @@ public class AlertController {
     }
 
     @PatchMapping("/{id}/review")
-    @Operation(summary = "Mark an alert as reviewed")
+    @Operation(summary = "Mark an alert as reviewed with resolution decision and notes")
     public ResponseEntity<AlertReviewResponse> review(
             @PathVariable UUID id,
-            @Valid @RequestBody(required = false) ReviewAlertRequest request,
+            @Valid @RequestBody ReviewAlertRequest request,
             Authentication authentication) {
 
         UUID reviewerUserId = (UUID) authentication.getPrincipal();
-        String notes = request != null ? request.getNotes() : null;
-
-        return ResponseEntity.ok(alertService.reviewAlert(id, notes, reviewerUserId));
+        return ResponseEntity.ok(alertService.reviewAlert(id, request.getDecision(), request.getNotes(), reviewerUserId));
     }
 
     @PostMapping

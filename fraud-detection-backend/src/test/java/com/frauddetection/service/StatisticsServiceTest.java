@@ -53,6 +53,9 @@ class StatisticsServiceTest {
         when(fraudAnalysisRepository.countByRiskLevelAndAnalyzedAtBetween(eq(RiskLevel.HIGH), any(), any())).thenReturn(4L);
         when(fraudAnalysisRepository.countByRiskLevelAndAnalyzedAtBetween(eq(RiskLevel.CRITICAL), any(), any())).thenReturn(1L);
 
+        when(transactionRepository.sumAmountAtRiskBetween(any(), any())).thenReturn(new BigDecimal("24850.00"));
+        when(alertRepository.sumConfirmedFraudAmountBetween(any(), any())).thenReturn(new BigDecimal("15200.00"));
+
         DashboardStatisticsResponse stats = statisticsService.getDashboardStatistics(yesterday, now);
 
         assertThat(stats.getTotalTransactions()).isEqualTo(100L);
@@ -63,7 +66,9 @@ class StatisticsServiceTest {
         assertThat(stats.getOpenAlerts()).isEqualTo(3L);
         assertThat(stats.getRiskDistribution().get("LOW")).isEqualTo(70L);
         assertThat(stats.getRiskDistribution().get("CRITICAL")).isEqualTo(1L);
-        assertThat(stats.getRiskTrend()).isNotEmpty();
+        assertThat(stats.getAmountAtRisk()).isEqualTo(new BigDecimal("24850.00"));
+        assertThat(stats.getProtectedCapital()).isEqualTo(new BigDecimal("15200.00"));
+        assertThat(stats.getRiskTrend()).hasSize(7);
     }
 
     @Test
@@ -73,12 +78,17 @@ class StatisticsServiceTest {
         when(fraudAnalysisRepository.countFraudDetectedBetween(any(), any())).thenReturn(0L);
         when(fraudAnalysisRepository.findAverageRiskScoreBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(alertRepository.countByStatus(AlertStatus.OPEN)).thenReturn(0L);
+        when(transactionRepository.sumAmountAtRiskBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(alertRepository.sumConfirmedFraudAmountBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         DashboardStatisticsResponse stats = statisticsService.getDashboardStatistics(null, null);
 
         assertThat(stats.getTotalTransactions()).isEqualTo(0L);
         assertThat(stats.getFraudRate()).isEqualTo(BigDecimal.ZERO);
+        assertThat(stats.getAmountAtRisk()).isEqualTo(BigDecimal.ZERO);
+        assertThat(stats.getProtectedCapital()).isEqualTo(BigDecimal.ZERO);
         assertThat(stats.getPeriod().getFrom()).isNotNull();
         assertThat(stats.getPeriod().getTo()).isNotNull();
+        assertThat(stats.getRiskTrend()).hasSize(7);
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -53,4 +54,16 @@ public interface AlertRepository extends JpaRepository<Alert, UUID> {
             @Param("transactionId") UUID transactionId,
             @Param("status") AlertStatus status
     );
+
+    /**
+     * Sum transaction amount of confirmed fraud alerts reviewed within a time period.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(t.amount), 0) FROM Alert a
+            JOIN a.fraudAnalysis fa
+            JOIN fa.transaction t
+            WHERE a.decision = com.frauddetection.domain.enums.AlertDecision.FRAUD_CONFIRMED
+              AND a.reviewedAt BETWEEN :from AND :to
+            """)
+    BigDecimal sumConfirmedFraudAmountBetween(@Param("from") Instant from, @Param("to") Instant to);
 }

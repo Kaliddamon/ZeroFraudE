@@ -27,6 +27,7 @@ export interface ExplainabilityPanelProps {
   explanations?: string[];
   contributions?: FeatureContribution[];
   userId?: string;
+  transactionId?: string;
   riskLevel?: RiskLevel;
   className?: string;
 }
@@ -116,6 +117,7 @@ export function ExplainabilityPanel({
   explanations = [],
   contributions,
   userId,
+  transactionId,
   riskLevel: _riskLevel,
   className = '',
 }: ExplainabilityPanelProps) {
@@ -175,7 +177,7 @@ export function ExplainabilityPanel({
 
         {userId ? (
           <a
-            href={`/profile/${userId}`}
+            href={transactionId ? `/profile/${userId}?txId=${transactionId}` : `/profile/${userId}`}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1F2328] hover:bg-[#282E35] text-cyan-400 hover:text-cyan-300 border border-[#30363D] text-[11px] font-medium transition-colors"
             title={`Ver perfil conductual de ${userId}`}
           >

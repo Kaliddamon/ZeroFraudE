@@ -29,6 +29,8 @@ public class DashboardStatisticsResponse {
     private Map<String, Long> riskDistribution;
     private long openAlerts;
     private List<RiskTrendEntry> riskTrend;
+    private BigDecimal amountAtRisk;
+    private BigDecimal protectedCapital;
 
     @Data
     @NoArgsConstructor
