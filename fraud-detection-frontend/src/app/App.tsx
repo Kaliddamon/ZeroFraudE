@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -20,6 +20,13 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
+  useEffect(() => {
+    // Warmup silencioso para despertar el backend si está en suspensión
+    const apiUrl = import.meta.env.VITE_API_URL ?? '/api/v1';
+    const healthUrl = apiUrl.replace(/\/api\/v1\/?$/, '') + '/actuator/health';
+    fetch(healthUrl, { mode: 'no-cors' }).catch(() => {});
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

@@ -80,6 +80,11 @@ export function LoginPage() {
             <Button type="submit" className="w-full mt-2" size="lg" loading={loading}>
               Ingresar al Sistema
             </Button>
+            {loading && (
+              <p className="text-xs text-center text-[var(--text-muted)] mt-2 animate-pulse">
+                Conectando con el servidor, por favor espera...
+              </p>
+            )}
             
           </form>
         </CardContent>

@@ -24,7 +24,7 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 10_000,
+  timeout: 150_000,
 });
 
 // ── Interceptor de Request: inyectar JWT ──────────────────────────────────────
@@ -75,7 +75,7 @@ function mapStatusToMessage(status: number): string {
     422: 'Los datos enviados no son válidos.',
     503: 'El servicio de análisis no está disponible temporalmente.',
     500: 'Error interno del servidor. Intenta de nuevo.',
-    0:   'Sin conexión. Verifica tu red.',
+    0:   'El servidor está tardando en responder. Intenta de nuevo en unos segundos.',
   };
   return messages[status] ?? 'Ocurrió un error inesperado.';
 }
