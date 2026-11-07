@@ -4,20 +4,38 @@ import { cn } from '@/utils';
 // ── Input Floating Label ──────────────────────────────────────────────────────
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label:    string;
-  error?:   string;
-  leftIcon?: React.ReactNode;
-  hint?:    string;
+  label:        string;
+  error?:       string;
+  leftIcon?:    React.ReactNode;
+  hint?:          string;
+  rightElement?:  React.ReactNode;
+  labelPosition?: 'floating' | 'top';
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, leftIcon, hint, className, id, ...props }, ref) => {
+  ({ label, error, leftIcon, hint, rightElement, className, id, placeholder, required, labelPosition = 'floating', ...props }, ref) => {
     const uid = useId();
     const inputId = id ?? uid;
+    const isFloating = labelPosition === 'floating';
+    const placeholderText = placeholder ?? (isFloating ? label : '');
 
     return (
       <div className="flex flex-col gap-1.5">
-        <div className={cn('input-group', leftIcon && 'relative')}>
+        {!isFloating && (
+          <label
+            htmlFor={inputId}
+            className="text-sm font-medium text-[var(--text-primary)] flex items-center gap-1"
+          >
+            {label}
+            {required && (
+              <span className="text-[var(--risk-high)]" aria-hidden="true">
+                *
+              </span>
+            )}
+          </label>
+        )}
+
+        <div className={cn('input-group', (leftIcon || rightElement) && 'relative')}>
           {leftIcon && (
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10 transition-colors duration-200">
               {leftIcon}
@@ -27,19 +45,36 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'input-field',
-              leftIcon && 'pl-10',
+              'input-field peer',
+              !isFloating && 'input-static',
+              leftIcon ? 'pl-10 pr-4' : 'px-4',
+              rightElement && 'pr-10',
               error && 'border-[var(--risk-high)] focus:border-[var(--risk-high)] focus:shadow-none',
               className
             )}
-            placeholder={label}
+            placeholder={placeholderText || (isFloating ? ' ' : (placeholder ?? ''))}
+            required={required}
+            aria-required={required}
             aria-invalid={!!error}
             aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
             {...props}
           />
-          <label htmlFor={inputId} className={cn('input-label', leftIcon && 'left-10')}>
-            {label}
-          </label>
+          {isFloating && (
+            <label htmlFor={inputId} className={cn('input-label', leftIcon && 'left-10')}>
+              {label}
+              {required && (
+                <span className="ml-0.5 text-[var(--risk-high)]" aria-hidden="true">
+                  *
+                </span>
+              )}
+            </label>
+          )}
+
+          {rightElement && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex items-center">
+              {rightElement}
+            </span>
+          )}
 
           {/* Border glow bottom line */}
           <span
@@ -49,7 +84,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {error && (
-          <p id={`${inputId}-error`} className="flex items-center gap-1.5 text-xs text-[var(--risk-high)] font-medium animate-[slide-in-up_0.2s_ease_both]">
+          <p
+            id={`${inputId}-error`}
+            role="alert"
+            aria-live="assertive"
+            className="flex items-center gap-1.5 text-xs text-[var(--risk-high)] font-medium animate-[slide-in-up_0.2s_ease_both]"
+          >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
             </svg>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Mail, Lock } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,6 +11,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,7 +54,12 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             
             {error && (
-              <div className="p-3 rounded-md bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.25)] text-[var(--risk-high)] text-sm font-medium text-center">
+              <div
+                role="alert"
+                aria-live="assertive"
+                data-testid="login-error"
+                className="p-3 rounded-md bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.25)] text-[var(--risk-high)] text-sm font-medium text-center"
+              >
                 {error}
               </div>
             )}
@@ -65,15 +71,34 @@ export function LoginPage() {
                 label="Correo Institucional"
                 leftIcon={<Mail className="w-4 h-4" />}
                 placeholder="admin@frauddetection.com"
+                autoComplete="email"
+                labelPosition="top"
                 required
               />
               <Input
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 label="Contraseña"
                 leftIcon={<Lock className="w-4 h-4" />}
                 placeholder="••••••••"
+                autoComplete="current-password"
+                labelPosition="top"
                 required
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    aria-pressed={showPassword}
+                    className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                }
               />
             </div>
 

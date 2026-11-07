@@ -229,13 +229,19 @@ body {
   color: var(--text-primary);
   font-family: inherit;
   font-size: 0.9375rem;
-  padding: 1.25rem 1rem 0.5rem;
+  padding-top: 1.625rem;
+  padding-bottom: 0.5rem;
   outline: none;
   transition:
     border-color 0.3s var(--ease-smooth),
     box-shadow 0.3s var(--ease-smooth),
     background 0.3s var(--ease-smooth);
   backdrop-filter: blur(8px);
+}
+
+.input-field.input-static {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
 }
 .input-field:focus {
   border-color: var(--brand);
@@ -260,7 +266,7 @@ body {
 }
 .input-field:focus + .input-label,
 .input-field:not(:placeholder-shown) + .input-label {
-  top: 0.65rem;
+  top: 0.5rem;
   transform: translateY(0);
   font-size: 0.6875rem;
   color: var(--brand-light);
