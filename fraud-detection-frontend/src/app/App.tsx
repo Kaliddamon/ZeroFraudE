@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import TransactionExplorer from '@/pages/TransactionExplorer';
 import AlertCenter from '@/pages/AlertCenter';
 import UserProfile from '@/pages/UserProfile';
+import { ServerConnectingToast } from '@/components/ui/ServerConnectingToast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +31,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ServerConnectingToast />
         <Routes>
           {/* Public Routes */}
           <Route element={<AuthLayout />}>

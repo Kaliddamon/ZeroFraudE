@@ -27,24 +27,65 @@ export const apiClient = axios.create({
   timeout: 150_000,
 });
 
+// ── Detección de Cold Start / Conexión lenta ──────────────────────────────────
+
+let activePendingCount = 0;
+let slowTimer: any = null;
+
+const notifyConnecting = (active: boolean) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('zfe:connecting', { detail: { active } }));
+  }
+};
+
+const onRequestStart = () => {
+  activePendingCount++;
+  if (!slowTimer) {
+    slowTimer = setTimeout(() => {
+      if (activePendingCount > 0) {
+        notifyConnecting(true);
+      }
+    }, 2000);
+  }
+};
+
+const onRequestEnd = () => {
+  activePendingCount = Math.max(0, activePendingCount - 1);
+  if (activePendingCount === 0) {
+    if (slowTimer) {
+      clearTimeout(slowTimer);
+      slowTimer = null;
+    }
+    notifyConnecting(false);
+  }
+};
+
 // ── Interceptor de Request: inyectar JWT ──────────────────────────────────────
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    onRequestStart();
     const token = localStorage.getItem('zfe_token');
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    onRequestEnd();
+    return Promise.reject(error);
+  }
 );
 
 // ── Interceptor de Response: convertir errores HTTP a AppError ────────────────
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    onRequestEnd();
+    return response;
+  },
   (error: AxiosError<ApiError>) => {
+    onRequestEnd();
     const status = error.response?.status ?? 0;
     const data   = error.response?.data;
 
