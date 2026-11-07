@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Sidebar } from '@/components/ui/Sidebar';
+import { CommandPalette } from '@/components/ui/CommandPalette';
 import { cn } from '@/utils';
 import { Bell, Search, Menu } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export function MainLayout() {
     return false;
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const location = useLocation();
 
   // Scroll effect
@@ -20,6 +22,27 @@ export function MainLayout() {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Atajos de teclado globales
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (isMod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      }
+      if (isMod && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setCollapsed((prev) => {
+          const next = !prev;
+          localStorage.setItem('zfe_sidebar_collapsed', String(next));
+          return next;
+        });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   const toggleCollapse = () => {
@@ -133,6 +156,19 @@ export function MainLayout() {
           <Outlet />
         </div>
       </main>
+
+      <CommandPalette
+        key={commandOpen ? 'open' : 'closed'}
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        onToggleSidebar={() => {
+          setCollapsed((prev) => {
+            const next = !prev;
+            localStorage.setItem('zfe_sidebar_collapsed', String(next));
+            return next;
+          });
+        }}
+      />
     </div>
   );
 }

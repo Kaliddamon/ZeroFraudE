@@ -1,7 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ShieldCheck, LayoutDashboard, Search, Bell, Activity, LogOut, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { cn } from '@/utils';
+import { fetchAlerts } from '@/services/api/alerts.service';
 
 // ── Navegación agrupada por proceso (solo rutas existentes) ────────────────────
 const sections = [
@@ -31,6 +33,15 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggleCollapse, mobileOpen = false, onMobileClose }: SidebarProps) {
   const effectiveCollapsed = collapsed;
+
+  // Conteo real de alertas abiertas (sin simular). Se reutiliza la query key base
+  // para compartir caché con AlertCenter.
+  const { data: openAlertsData } = useQuery({
+    queryKey: ['alerts', { status: 'OPEN', page: 0, size: 1 }],
+    queryFn: () => fetchAlerts({ status: 'OPEN', page: 0, size: 1 }),
+    staleTime: 60_000,
+  });
+  const openAlertsCount = openAlertsData?.totalElements ?? 0;
 
   const sidebarContent = (
     <>
@@ -77,7 +88,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, mobileOpen = fals
                   title={effectiveCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     cn(
-                      'nav-pill flex items-center gap-3 rounded-md outline-none transition-colors',
+                      'nav-pill relative flex items-center gap-3 rounded-md outline-none transition-colors',
                       effectiveCollapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5 text-sm font-medium',
                       isActive
                         ? 'active text-[var(--text-primary)]'
@@ -88,6 +99,17 @@ export function Sidebar({ collapsed = false, onToggleCollapse, mobileOpen = fals
                 >
                   <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                   {!effectiveCollapsed && <span>{item.label}</span>}
+                  {item.to === '/alerts' && openAlertsCount > 0 && (
+                    <span
+                      className={cn(
+                        'ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30',
+                        effectiveCollapsed && 'absolute -top-1 -right-1 ml-0'
+                      )}
+                      aria-label={`${openAlertsCount} alertas abiertas`}
+                    >
+                      {openAlertsCount > 99 ? '99+' : openAlertsCount}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}
