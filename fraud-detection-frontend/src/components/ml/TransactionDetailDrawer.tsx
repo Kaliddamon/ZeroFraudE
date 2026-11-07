@@ -288,7 +288,7 @@ export function TransactionDetailDrawer({ transaction, onClose }: TransactionDet
                 )}
               </div>
               <p className="text-xs font-mono text-[#8A929B] mt-0.5">
-                Inferencia {analysis?.modelVersion ? `v${analysis.modelVersion}` : 'LightGBM v1.1.0'}
+                Inferencia {analysis?.modelVersion ? `v${analysis.modelVersion}` : 'Versión no disponible'}
               </p>
             </div>
           </div>

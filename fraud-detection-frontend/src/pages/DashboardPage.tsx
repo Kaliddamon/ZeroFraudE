@@ -230,8 +230,11 @@ export function DashboardPage() {
                 (Clic en una fila para abrir detalle y explicabilidad)
               </span>
             </div>
-            <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded">
-              Pipeline P95: 12ms
+            <span
+              className="text-xs font-mono text-[#8A929B] bg-[#1F2328] border border-[#2D333B] px-2.5 py-0.5 rounded"
+              title="Métrica de latencia no disponible hasta integrar el servicio ML (/metrics)"
+            >
+              Telemetría ML: no disponible
             </span>
           </div>
 

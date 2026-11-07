@@ -57,7 +57,7 @@ export function MainLayout() {
               </div>
               <div className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>ONLINE · LIGHTGBM V1.1.0</span>
+                <span>ONLINE</span>
               </div>
             </div>
 

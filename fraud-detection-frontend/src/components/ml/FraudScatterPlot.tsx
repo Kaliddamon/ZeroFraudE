@@ -94,8 +94,11 @@ export function FraudScatterPlot() {
             <h2 className="text-sm font-semibold tracking-wider text-[#F3F4F6] uppercase font-mono">
               Signal Scatter: Monto vs. Score de Riesgo
             </h2>
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-50/10 text-cyan-400 border border-cyan-500/20">
-              LightGBM Ingestion
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              title="Visualización de demostración: no proviene del backend"
+            >
+              Datos de demostración
             </span>
           </div>
           <p className="text-xs text-[#8A929B] mt-0.5 font-mono">
