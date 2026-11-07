@@ -36,7 +36,7 @@ test.describe('Flujo 1 — Autenticación y Dashboard', () => {
 
     // Redirección al Dashboard
     await expect(page).toHaveURL(/dashboard/, { timeout: 20_000 });
-    await dashboardPage.waitForStats().catch(() => {});
+    await dashboardPage.waitForStats().catch(() => { });
 
     // Contenido general del dashboard
     await expect(page.locator('body')).not.toBeEmpty();
@@ -52,7 +52,7 @@ test.describe('Flujo 1 — Autenticación y Dashboard', () => {
     await expect(page.getByText('Volumen Evaluado')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Fraude Detectado')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Alertas en Cola')).toBeVisible({ timeout: 10_000 });
-    
+
     // Indicador económico dinámico (Capital Protegido o Monto en Riesgo)
     const hasCapitalOrRisk = await page
       .getByText(/Capital Protegido|Monto en Riesgo/i)
@@ -99,7 +99,7 @@ test.describe('Flujo 1 — Autenticación y Dashboard', () => {
       .first()
       .isVisible({ timeout: 5000 })
       .catch(() => false);
-    
+
     expect(hasError || page.url().includes('login')).toBe(true);
   });
 });

@@ -1,3 +1,13 @@
+---
+title: ZeroFraudE ML Service
+emoji: 🛡️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # Fraud Detection ML Pipeline
 
 Componente de Machine Learning para **Detección Adaptativa de Fraude en E-commerce**.

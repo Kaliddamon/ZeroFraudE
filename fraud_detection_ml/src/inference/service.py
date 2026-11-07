@@ -60,7 +60,7 @@ class FraudDetectionService:
         self._is_ready: bool = False
 
     @classmethod
-    def load(cls, version: str = "1.1.0", artifacts_dir: Optional[str] = None) -> "FraudDetectionService":
+    def load(cls, version: Optional[str] = None, artifacts_dir: Optional[str] = None) -> "FraudDetectionService":
         """
         Carga todos los artefactos desde disco e inicializa el servicio.
 
@@ -76,6 +76,9 @@ class FraudDetectionService:
         """
         svc = cls()
         svc._config = load_config()
+        import os
+        if version is None:
+            version = os.getenv("MODEL_VERSION", svc._config.model_version if svc._config else "3.0.0")
         svc._model_version = version
 
         base = Path(artifacts_dir) if artifacts_dir else ROOT / "artifacts" / version

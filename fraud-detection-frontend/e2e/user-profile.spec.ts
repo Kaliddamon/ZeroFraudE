@@ -18,7 +18,7 @@ test.describe('Flujo 5 — Perfil conductual del usuario (FE-09)', () => {
 
   test.beforeEach(async ({ request, authToken }) => {
     testUserId = uniqueUserId('e2e_profile');
-    
+
     // Crear una transacción con inferencia ML para asociar al usuario
     const tx = await createHighRiskTransaction(request, authToken, {
       externalUserId: testUserId,
@@ -88,7 +88,7 @@ test.describe('Flujo 5 — Perfil conductual del usuario (FE-09)', () => {
     if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
       await searchInput.fill(testUserId);
       await page.waitForTimeout(600);
-      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => { });
     }
 
     const row = page.locator('table tbody tr').filter({ hasText: testUserId }).first();

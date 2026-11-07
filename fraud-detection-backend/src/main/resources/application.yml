@@ -2,6 +2,12 @@ spring:
   application:
     name: fraud-detection-api
 
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fraud_dev}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
   jackson:
     default-property-inclusion: non_null
     serialization:

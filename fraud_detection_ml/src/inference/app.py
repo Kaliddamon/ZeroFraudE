@@ -19,6 +19,7 @@ Endpoints auxiliares:
 
 from __future__ import annotations
 
+import os
 import statistics
 import threading
 import time
@@ -176,7 +177,8 @@ async def lifespan(app: FastAPI):
     """Carga los artefactos al iniciar el servicio."""
     global _service
     try:
-        _service = FraudDetectionService.load(version="3.0.0")
+        model_ver = os.getenv("MODEL_VERSION", "3.0.0")
+        _service = FraudDetectionService.load(version=model_ver)
         print("[App] Service loaded successfully.")
     except Exception as e:
         print(f"[App] WARNING: Could not load model artifacts: {e}")
@@ -283,6 +285,27 @@ async def health():
         "status": "healthy" if _service and _service.is_ready else "degraded",
         "model_loaded": _service is not None and _service.is_ready,
     }
+
+
+@app.get("/ready", summary="Readiness check")
+async def ready():
+    """
+    Verifica que el modelo este cargado y listo para servir predicciones.
+    Retorna 200 si esta listo, 503 si no.
+    """
+    if _service is not None and _service.is_ready:
+        return {
+            "status": "ready",
+            "model_version": _service.model_version,
+        }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "not_ready",
+            "detail": "Model not loaded or not ready for inference.",
+        },
+    )
 
 
 @app.get("/model-info", summary="Información del modelo")
